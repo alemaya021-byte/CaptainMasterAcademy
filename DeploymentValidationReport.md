@@ -13,6 +13,7 @@ Date: July 3, 2026
 - All app paths are relative.
 - `.nojekyll` is present.
 - App files are at the repository root for GitHub Pages publishing.
+- GitHub Pages workflow is configured to publish the repository root on pushes to `main`.
 - `data/questions.json` remains in `data/questions.json`.
 - Local server validation passed before push.
 - PWA cache includes the current deployable assets.
@@ -36,4 +37,3 @@ Date: July 3, 2026
 ## Result
 
 Ready for push to GitHub Pages public repository. Live deployment validation will be completed after the commit is pushed and GitHub Pages publishes the new revision.
-

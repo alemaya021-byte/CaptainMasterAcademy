@@ -32,6 +32,7 @@
     ["quiz.html", "Study"],
     ["exam.html", "Exam"],
     ["flashcards.html", "Flashcards"],
+    ["search.html", "Search"],
     ["statistics.html", "Analytics"],
   ];
 
@@ -40,6 +41,9 @@
       answers: {},
       bookmarks: {},
       missed: {},
+      needsReview: {},
+      reports: [],
+      reviewed: {},
       flashcards: {},
       exams: [],
       activeExam: null,
@@ -56,6 +60,9 @@
       answers: parsed.answers || {},
       bookmarks: parsed.bookmarks || {},
       missed: parsed.missed || {},
+      needsReview: parsed.needsReview || {},
+      reports: Array.isArray(parsed.reports) ? parsed.reports : [],
+      reviewed: parsed.reviewed || {},
       flashcards: parsed.flashcards || {},
       exams: parsed.exams || [],
       activeExam: parsed.activeExam || null,
@@ -241,6 +248,7 @@
   function collectFilterValues(questions) {
     return {
       categories: uniqueSorted(questions.map((q) => q.source_category)),
+      sources: uniqueSorted(questions.map(sourceLabel)),
       books: uniqueSorted(questions.map(bookLabel)),
       chapters: uniqueSorted(questions.map(chapterLabel)),
       difficulties: uniqueSorted(questions.map((q) => q.difficulty)),
@@ -255,15 +263,21 @@
     const terms = normalize(filters.query || filters.keyword).split(" ").filter(Boolean);
     return questions.filter((question) => {
       if (filters.category && question.source_category !== filters.category) return false;
+      if (filters.source && sourceLabel(question) !== filters.source) return false;
       if (filters.book && bookLabel(question) !== filters.book) return false;
       if (filters.chapter && chapterLabel(question) !== filters.chapter) return false;
+      if (filters.policy && !normalize(searchableText(question)).includes(normalize(filters.policy))) return false;
+      if (filters.sop && !normalize(searchableText(question)).includes(normalize(filters.sop))) return false;
+      if (filters.article && !normalize(searchableText(question)).includes(normalize(filters.article))) return false;
       if (filters.difficulty && question.difficulty !== filters.difficulty) return false;
       if (filters.tag && !(question.tags || []).includes(filters.tag)) return false;
       if (filters.code && sourceCode(question) !== filters.code) return false;
       if (filters.area && primaryArea(question) !== filters.area) return false;
+      if (filters.probability && question.estimated_exam_probability !== filters.probability) return false;
       if (filters.questionId && !normalize(question.question_id).includes(normalize(filters.questionId))) return false;
       if (filters.missedOnly && !isMissed(question.question_id)) return false;
       if (filters.bookmarkedOnly && !isBookmarked(question.question_id)) return false;
+      if (filters.needsReviewOnly && !isNeedsReview(question.question_id)) return false;
       if (!terms.length) return true;
       const haystack = normalize(searchableText(question));
       return terms.every((term) => haystack.includes(term));
@@ -320,15 +334,31 @@
 
   function updateMissed(questionId, correct) {
     if (!correct) {
-      progress.missed[questionId] = { correctStreak: 0, lastMissedAt: new Date().toISOString() };
+      const current = progress.missed[questionId] || {};
+      progress.missed[questionId] = {
+        ...current,
+        correctStreak: 0,
+        misses: (current.misses || 0) + 1,
+        lastMissedAt: new Date().toISOString(),
+        status: "still weak",
+      };
       return;
     }
     if (!progress.missed[questionId]) return;
     const row = progress.missed[questionId];
     row.correctStreak = (row.correctStreak || 0) + 1;
     row.lastCorrectAt = new Date().toISOString();
+    row.status = row.correctStreak >= 2 ? "mastered" : "improving";
     if (row.correctStreak >= 2) delete progress.missed[questionId];
     else progress.missed[questionId] = row;
+  }
+
+  function markReviewed(questionId) {
+    const day = new Date().toISOString().slice(0, 10);
+    const row = progress.reviewed[day] || {};
+    row[questionId] = true;
+    progress.reviewed[day] = row;
+    writeProgress(progress);
   }
 
   function recordAnswer(question, originalLabel, mode = "practice", meta = {}) {
@@ -395,10 +425,81 @@
     return Object.keys(progress.bookmarks || {});
   }
 
+  function isNeedsReview(questionId) {
+    return Boolean(progress.needsReview[questionId]);
+  }
+
+  function toggleNeedsReview(questionId) {
+    if (progress.needsReview[questionId]) delete progress.needsReview[questionId];
+    else progress.needsReview[questionId] = { at: new Date().toISOString() };
+    writeProgress(progress);
+    return isNeedsReview(questionId);
+  }
+
+  function needsReviewIds() {
+    return Object.keys(progress.needsReview || {});
+  }
+
+  function missedStatus(questionId) {
+    const row = progress.missed[questionId];
+    if (!row) return "mastered";
+    if ((row.correctStreak || 0) === 1) return "improving";
+    return "still weak";
+  }
+
+  function reportIssue(question, reason, note = "") {
+    const report = {
+      id: `issue-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      question_id: question.question_id,
+      source: sourceLabel(question),
+      reason,
+      note,
+      timestamp: new Date().toISOString(),
+    };
+    progress.reports = [report, ...(progress.reports || [])].slice(0, 500);
+    writeProgress(progress);
+    return report;
+  }
+
+  function issueReports() {
+    return progress.reports || [];
+  }
+
+  function downloadText(filename, content, type = "text/plain") {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportIssueReports(format = "json") {
+    const rows = issueReports();
+    if (format === "csv") {
+      const headers = ["reported question ID", "reason", "user note", "timestamp", "source"];
+      const escapeCsv = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+      const csv = [
+        headers.map(escapeCsv).join(","),
+        ...rows.map((row) => [row.question_id, row.reason, row.note, row.timestamp, row.source].map(escapeCsv).join(",")),
+      ].join("\n");
+      downloadText("captain-master-academy-reported-issues.csv", csv, "text/csv");
+      return rows.length;
+    }
+    downloadText("captain-master-academy-reported-issues.json", JSON.stringify(rows, null, 2), "application/json");
+    return rows.length;
+  }
+
   function resetProgress() {
     progress.answers = {};
     progress.bookmarks = {};
     progress.missed = {};
+    progress.needsReview = {};
+    progress.reports = [];
+    progress.reviewed = {};
     progress.flashcards = {};
     progress.exams = [];
     progress.activeExam = null;
@@ -420,6 +521,9 @@
       answered: records.length,
       missed: missedIds().length,
       bookmarks: bookmarkedIds().length,
+      needsReview: needsReviewIds().length,
+      reportedIssues: issueReports().length,
+      reviewedToday: Object.keys(progress.reviewed[new Date().toISOString().slice(0, 10)] || {}).length,
       avgResponseSeconds: attempts && responseMs ? Math.round(responseMs / attempts / 1000) : 0,
     };
   }
@@ -468,6 +572,10 @@
       if (!rows.some((row) => row.label === area)) rows.push({ label: area, total: 0, attempts: 0, correct: 0, incorrect: 0, accuracy: 0 });
     });
     return rows.sort((a, b) => ANALYTICS_AREAS.indexOf(a.label) - ANALYTICS_AREAS.indexOf(b.label));
+  }
+
+  function chapterScores(questions) {
+    return aggregateScores(questions, chapterLabel).sort((a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label));
   }
 
   function weakTopics(questions, limit = 8) {
@@ -567,6 +675,211 @@
     return rows;
   }
 
+  function recentAccuracy(days = 14) {
+    const since = Date.now() - days * DAY_MS;
+    const events = Object.values(progress.answers).flatMap((record) => record.history || []).filter((event) => new Date(event.at || 0).getTime() >= since);
+    const correct = events.filter((event) => event.correct).length;
+    return events.length ? Math.round((correct / events.length) * 100) : 0;
+  }
+
+  function hardAccuracy() {
+    const records = Object.values(progress.answers).filter((record) => record.difficulty === "Hard");
+    const attempts = records.reduce((sum, record) => sum + record.attempts, 0);
+    const correct = records.reduce((sum, record) => sum + record.correct, 0);
+    return attempts ? Math.round((correct / attempts) * 100) : 0;
+  }
+
+  function flashcardStats() {
+    const now = Date.now();
+    const rows = Object.values(progress.flashcards || {});
+    return rows.reduce(
+      (stats, card) => {
+        const due = new Date(card.dueAt || 0).getTime();
+        if (!card.dueAt || due <= now) stats.dueToday += 1;
+        if (card.dueAt && due < now - DAY_MS) stats.overdue += 1;
+        if (card.dueAt && due > now) stats.upcoming += 1;
+        if ((card.reps || 0) >= 3 && (card.intervalDays || 0) >= 7) stats.mastered += 1;
+        return stats;
+      },
+      { dueToday: 0, overdue: 0, upcoming: 0, mastered: 0, total: rows.length }
+    );
+  }
+
+  function readinessModel(questions) {
+    const summary = scoreSummary();
+    const recent = recentAccuracy(14);
+    const hard = hardAccuracy();
+    const weakRows = weakTopics(questions, 12);
+    const weakAverage = weakRows.length ? Math.round(weakRows.reduce((sum, row) => sum + row.accuracy, 0) / weakRows.length) : summary.accuracy;
+    const exams = progress.exams || [];
+    const examAverage = exams.length ? Math.round(exams.slice(0, 5).reduce((sum, exam) => sum + (exam.pct || 0), 0) / Math.min(5, exams.length)) : 0;
+    const recovered = Object.values(progress.answers).filter((record) => record.lastCorrect === true && record.incorrect > 0).length;
+    const recovery = summary.answered ? Math.round((recovered / summary.answered) * 100) : 0;
+    const streakInfo = streak();
+    const consistency = Math.min(100, Math.round(((streakInfo.current * 8) + (streakInfo.activeDays * 2))));
+    const responseScore = summary.avgResponseSeconds ? Math.max(0, Math.min(100, 100 - Math.max(0, summary.avgResponseSeconds - 45))) : 60;
+    const score = Math.round(
+      summary.accuracy * 0.25 +
+      (recent || summary.accuracy) * 0.18 +
+      (hard || summary.accuracy) * 0.14 +
+      (weakAverage || summary.accuracy) * 0.14 +
+      (examAverage || summary.accuracy) * 0.14 +
+      recovery * 0.07 +
+      consistency * 0.05 +
+      responseScore * 0.03
+    );
+    const category = score >= 85 ? "Exam ready" : score >= 72 ? "Near ready" : score >= 55 ? "Developing" : "Not ready";
+    const recommendations = [];
+    if (summary.attempts < 125) recommendations.push("Complete at least one full 125-question simulator.");
+    if (recent && recent < summary.accuracy) recommendations.push("Run a focused drill today to lift recent accuracy.");
+    if (hard < 75) recommendations.push("Drill hard questions and review rationales before moving on.");
+    if (weakRows.length) recommendations.push(`Focus next on ${weakRows[0].label}.`);
+    if (missedIds().length) recommendations.push("Use missed-question drill until each item is answered correctly twice in a row.");
+    if (!recommendations.length) recommendations.push("Maintain readiness with a timed exam and flashcard review cycle.");
+    return { score, category, recommendations, recent, hard, weakAverage, examAverage, recovery, consistency, responseScore };
+  }
+
+  function strongestTopics(questions, limit = 6) {
+    return aggregateScores(questions, chapterLabel)
+      .filter((row) => row.attempts >= 2)
+      .sort((a, b) => b.accuracy - a.accuracy || b.correct - a.correct)
+      .slice(0, limit);
+  }
+
+  function missedBySource(questions) {
+    const byId = new Map(questions.map((question) => [question.question_id, question]));
+    const rows = new Map();
+    missedIds().forEach((id) => {
+      const question = byId.get(id);
+      const key = question ? sourceLabel(question) : "Unknown";
+      rows.set(key, (rows.get(key) || 0) + 1);
+    });
+    return [...rows.entries()].map(([label, count]) => ({ label, count })).sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }
+
+  function answerChoiceText(question, label) {
+    return question.answer_choices?.[label] || "";
+  }
+
+  function reviewPanelHtml(question) {
+    const incorrect = Object.entries(question.incorrect_answer_explanations || {})
+      .map(([label, explanation]) => `<li><strong>${escapeHtml(label)}.</strong> ${escapeHtml(answerChoiceText(question, label))}<br><span class="muted">${escapeHtml(explanation)}</span></li>`)
+      .join("");
+    return `
+      <div class="review-overlay" data-review-overlay>
+        <section class="review-panel" role="dialog" aria-modal="true" aria-label="Question review">
+          <div class="review-head">
+            <div>
+              <p class="eyebrow">Question Review</p>
+              <h2>${escapeHtml(question.question_id)}</h2>
+            </div>
+            <button class="icon-button" type="button" aria-label="Close review" data-close-review>X</button>
+          </div>
+          <div class="question-meta">
+            <span class="pill">${escapeHtml(question.source_category)}</span>
+            <span class="pill">${escapeHtml(question.difficulty)}</span>
+            <span class="pill">${escapeHtml(question.estimated_exam_probability || "Unrated")} probability</span>
+            <span class="pill">${escapeHtml(isMissed(question.question_id) ? missedStatus(question.question_id) : "not missed")}</span>
+          </div>
+          <div class="review-grid">
+            <div class="stack">
+              <h3>${escapeHtml(question.question_stem)}</h3>
+              <p><strong>Source:</strong> ${escapeHtml(question.source || question.source_category || "Unknown")}</p>
+              <p><strong>Reference:</strong> ${escapeHtml(sourceLabel(question))}</p>
+              <p><strong>Correct answer:</strong> ${escapeHtml(question.correct_answer)}. ${escapeHtml(answerChoiceText(question, question.correct_answer))}</p>
+              <p><strong>Rationale:</strong> ${escapeHtml(question.detailed_rationale)}</p>
+              <div>
+                <strong>Incorrect answer explanations:</strong>
+                <ul class="explanation-list">${incorrect || "<li>No incorrect-answer explanations stored for this item.</li>"}</ul>
+              </div>
+              <p><strong>Tags:</strong> ${escapeHtml((question.tags || []).join(", ") || "None")}</p>
+              <p><strong>Keywords:</strong> ${escapeHtml((question.keywords || []).join(", ") || "None")}</p>
+            </div>
+            <aside class="panel stack">
+              <button class="ghost-button" type="button" data-review-bookmark>${isBookmarked(question.question_id) ? "Remove Bookmark" : "Bookmark Question"}</button>
+              <button class="ghost-button" type="button" data-review-needs>${isNeedsReview(question.question_id) ? "Clear Needs Review" : "Mark Needs Review"}</button>
+              <h3>Report Possible Issue</h3>
+              <div class="field">
+                <label for="issue-reason">Reason</label>
+                <select id="issue-reason" data-issue-reason>
+                  <option value="Answer may be wrong">Answer may be wrong</option>
+                  <option value="Reference may be wrong">Reference may be wrong</option>
+                  <option value="Wording is unclear">Wording is unclear</option>
+                  <option value="Duplicate or too similar">Duplicate or too similar</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="issue-note">Note</label>
+                <textarea id="issue-note" data-issue-note rows="5" placeholder="Add a short note"></textarea>
+              </div>
+              <button class="button" type="button" data-report-issue>Report Issue</button>
+              <div class="empty hidden" data-report-status></div>
+            </aside>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  function openQuestionReview(question) {
+    markReviewed(question.question_id);
+    document.querySelector("[data-review-overlay]")?.remove();
+    document.body.insertAdjacentHTML("beforeend", reviewPanelHtml(question));
+    const overlay = document.querySelector("[data-review-overlay]");
+    overlay.querySelector("[data-close-review]").addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    overlay.querySelector("[data-review-bookmark]").addEventListener("click", (event) => {
+      const active = toggleBookmark(question.question_id);
+      event.currentTarget.textContent = active ? "Remove Bookmark" : "Bookmark Question";
+    });
+    overlay.querySelector("[data-review-needs]").addEventListener("click", (event) => {
+      const active = toggleNeedsReview(question.question_id);
+      event.currentTarget.textContent = active ? "Clear Needs Review" : "Mark Needs Review";
+    });
+    overlay.querySelector("[data-report-issue]").addEventListener("click", () => {
+      const reason = overlay.querySelector("[data-issue-reason]").value;
+      const note = overlay.querySelector("[data-issue-note]").value;
+      reportIssue(question, reason, note);
+      const status = overlay.querySelector("[data-report-status]");
+      status.classList.remove("hidden");
+      status.textContent = "Issue report saved locally.";
+    });
+  }
+
+  function reviewActionsHtml(question) {
+    return `
+      <button class="ghost-button" type="button" data-open-review="${escapeHtml(question.question_id)}">Review Details</button>
+      <button class="ghost-button" type="button" data-toggle-bookmark="${escapeHtml(question.question_id)}">${isBookmarked(question.question_id) ? "Remove Bookmark" : "Bookmark"}</button>
+      <button class="ghost-button" type="button" data-toggle-needs="${escapeHtml(question.question_id)}">${isNeedsReview(question.question_id) ? "Clear Needs Review" : "Needs Review"}</button>
+    `;
+  }
+
+  function bindReviewActions(container, questionLookup, onChange = () => {}) {
+    container.querySelectorAll("[data-open-review]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const question = questionLookup(button.dataset.openReview);
+        if (question) openQuestionReview(question);
+      });
+    });
+    container.querySelectorAll("[data-toggle-bookmark]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const active = toggleBookmark(button.dataset.toggleBookmark);
+        button.textContent = active ? "Remove Bookmark" : "Bookmark";
+        onChange();
+      });
+    });
+    container.querySelectorAll("[data-toggle-needs]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const active = toggleNeedsReview(button.dataset.toggleNeeds);
+        button.textContent = active ? "Clear Needs Review" : "Needs Review";
+        onChange();
+      });
+    });
+  }
+
   function categoryCounts(questions) {
     const counts = new Map();
     questions.forEach((question) => counts.set(question.source_category, (counts.get(question.source_category) || 0) + 1));
@@ -593,6 +906,7 @@
     const root = document.querySelector("[data-home]");
     if (!root) return;
     const summary = scoreSummary();
+    const readiness = readinessModel(questions);
     const categories = categoryCounts(questions);
     const streakInfo = streak();
     root.innerHTML = `
@@ -604,15 +918,32 @@
         <div class="action-row">
           <a class="button" href="exam.html?simulation=125">Start 125-Question Exam</a>
           <a class="ghost-button" href="quiz.html?mode=adaptive">Adaptive Study</a>
+          <a class="ghost-button" href="search.html">Search Bank</a>
           <a class="ghost-button" href="flashcards.html">Flashcards</a>
         </div>
       </section>
 
       <section class="grid four">
         <div class="stat-card"><div class="label">Questions</div><div class="value">${questions.length}</div></div>
+        <div class="stat-card"><div class="label">Readiness</div><div class="value">${readiness.score}%</div><span class="muted">${readiness.category}</span></div>
         <div class="stat-card"><div class="label">Overall Score</div><div class="value">${summary.accuracy}%</div></div>
         <div class="stat-card"><div class="label">Study Streak</div><div class="value">${streakInfo.current}</div></div>
-        <div class="stat-card"><div class="label">Avg Response</div><div class="value">${summary.avgResponseSeconds}s</div></div>
+      </section>
+
+      <section class="grid two" style="margin-top:16px">
+        <div class="panel stack">
+          <h2>Captain Readiness</h2>
+          <div class="readiness-meter"><span style="width:${readiness.score}%"></span></div>
+          <div class="grid three">
+            <div class="stat-card"><div class="label">Recent Accuracy</div><div class="value">${readiness.recent || 0}%</div></div>
+            <div class="stat-card"><div class="label">Hard Accuracy</div><div class="value">${readiness.hard || 0}%</div></div>
+            <div class="stat-card"><div class="label">Avg Response</div><div class="value">${summary.avgResponseSeconds}s</div></div>
+          </div>
+        </div>
+        <aside class="panel stack">
+          <h2>Recommended Next Actions</h2>
+          ${readiness.recommendations.map((item) => `<div class="list-item"><strong>${escapeHtml(item)}</strong></div>`).join("")}
+        </aside>
       </section>
 
       <section class="grid two" style="margin-top:16px">
@@ -632,6 +963,13 @@
           ${categories.map(([category, count]) => `<div class="list-item"><strong>${escapeHtml(category)}</strong><span class="muted">${count} questions</span><div class="action-row"><a class="ghost-button" href="quiz.html?category=${encodeURIComponent(category)}">Study</a><a class="ghost-button" href="flashcards.html?category=${encodeURIComponent(category)}">Flashcards</a></div></div>`).join("")}
         </div>
         <aside class="panel stack">
+          <h2>Study Queue</h2>
+          <div class="grid two">
+            <div class="stat-card"><div class="label">Missed</div><div class="value">${summary.missed}</div></div>
+            <div class="stat-card"><div class="label">Needs Review</div><div class="value">${summary.needsReview}</div></div>
+            <div class="stat-card"><div class="label">Bookmarks</div><div class="value">${summary.bookmarks}</div></div>
+            <div class="stat-card"><div class="label">Reviewed Today</div><div class="value">${summary.reviewedToday}</div></div>
+          </div>
           <h2>Recent Source Scores</h2>
           <div data-source-scores></div>
           <a class="ghost-button" href="statistics.html">Open Analytics</a>
@@ -712,7 +1050,13 @@
     scoreSummary,
     sourceScores,
     areaScores,
+    chapterScores,
     weakTopics,
+    strongestTopics,
+    missedBySource,
+    readinessModel,
+    flashcardStats,
+    recentAccuracy,
     adaptiveSelection,
     flashcardDue,
     rateFlashcard,
@@ -722,6 +1066,17 @@
     renderHome,
     statusMessage,
     writeProgress,
+    markReviewed,
+    isNeedsReview,
+    toggleNeedsReview,
+    needsReviewIds,
+    missedStatus,
+    reportIssue,
+    issueReports,
+    exportIssueReports,
+    openQuestionReview,
+    reviewActionsHtml,
+    bindReviewActions,
   };
 
   document.addEventListener("DOMContentLoaded", async () => {

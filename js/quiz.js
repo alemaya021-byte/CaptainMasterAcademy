@@ -13,12 +13,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     adaptive: document.querySelector("[data-adaptive-mode]"),
     missed: document.querySelector("[data-missed-review]"),
     bookmarks: document.querySelector("[data-bookmark-review]"),
+    needs: document.querySelector("[data-needs-review]"),
   };
   const filters = {
     query: document.querySelector("[data-filter-query]"),
     category: document.querySelector("[data-filter-category]"),
     difficulty: document.querySelector("[data-filter-difficulty]"),
     tag: document.querySelector("[data-filter-tag]"),
+    probability: document.querySelector("[data-filter-probability]"),
   };
 
   let allQuestions = [];
@@ -56,6 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     Object.values(modeButtons).forEach((button) => button.classList.remove("active-mode"));
     if (mode === "missed") modeButtons.missed.classList.add("active-mode");
     if (mode === "bookmarks") modeButtons.bookmarks.classList.add("active-mode");
+    if (mode === "needs") modeButtons.needs.classList.add("active-mode");
     if (!mode && studyMode) modeButtons.adaptive.classList.add("active-mode");
     if (!mode && !studyMode) modeButtons.all.classList.add("active-mode");
     if (studyNote) {
@@ -70,15 +73,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       category: filters.category.value,
       difficulty: filters.difficulty.value,
       tag: filters.tag.value,
+      probability: filters.probability.value,
       missedOnly: reviewMode === "missed",
       bookmarkedOnly: reviewMode === "bookmarks",
+      needsReviewOnly: reviewMode === "needs",
     };
   }
 
   function rebuildPool(showNext = true) {
     pool = CMA.applyFilters(allQuestions, readFilters());
     if (!pool.length) {
-      const label = reviewMode === "missed" ? "missed questions" : reviewMode === "bookmarks" ? "bookmarked questions" : "questions";
+      const label = reviewMode === "missed" ? "missed questions" : reviewMode === "bookmarks" ? "bookmarked questions" : reviewMode === "needs" ? "needs-review questions" : "questions";
       card.innerHTML = `<div class="empty">No ${label} match the current selection.</div>`;
       return;
     }
@@ -107,8 +112,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function renderQuestion() {
-    const bookmarked = CMA.isBookmarked(current.question_id);
-    const modePill = reviewMode === "missed" ? "Missed review" : reviewMode === "bookmarks" ? "Bookmark review" : "Promotional mode";
+    const modePill = reviewMode === "missed" ? "Missed review" : reviewMode === "bookmarks" ? "Bookmark review" : reviewMode === "needs" ? "Needs-review drill" : "Promotional mode";
+    const missedPill = CMA.isMissed(current.question_id) ? `<span class="pill">${CMA.missedStatus(current.question_id)}</span>` : "";
     card.innerHTML = `
       <div class="question-meta">
         <span class="pill">${CMA.escapeHtml(current.question_id)}</span>
@@ -116,6 +121,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         <span class="pill">${CMA.escapeHtml(current.difficulty)}</span>
         <span class="pill">${CMA.escapeHtml(current.estimated_exam_probability)} probability</span>
         <span class="pill">${modePill}</span>
+        ${missedPill}
+        ${CMA.isNeedsReview(current.question_id) ? `<span class="pill">Needs review</span>` : ""}
         ${studyMode ? `<span class="pill">Adaptive</span>` : ""}
       </div>
       <h2>${CMA.escapeHtml(current.question_stem)}</h2>
@@ -130,9 +137,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           .join("")}
       </div>
       <div class="feedback" data-feedback></div>
-      <div class="toolbar">
-        <button class="ghost-button" type="button" data-bookmark>${bookmarked ? "Bookmarked" : "Bookmark"}</button>
-        <button class="button" type="button" data-submit-answer ${submitted || timerExpired ? "disabled" : ""}>Submit Answer</button>
+      <div class="toolbar sticky-submit">
+        ${CMA.reviewActionsHtml(current)}
+        <button class="button" type="button" data-submit-answer ${!selectedOriginalLabel || submitted || timerExpired ? "disabled" : ""}>Submit Answer</button>
         <button class="ghost-button" type="button" data-next-question>${submitted || timerExpired ? "Next Question" : "Skip"}</button>
       </div>
     `;
@@ -141,11 +148,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
     card.querySelector("[data-submit-answer]").addEventListener("click", () => submitAnswer(false));
     card.querySelector("[data-next-question]").addEventListener("click", nextQuestion);
-    card.querySelector("[data-bookmark]").addEventListener("click", (event) => {
-      const nowBookmarked = CMA.toggleBookmark(current.question_id);
-      event.currentTarget.textContent = nowBookmarked ? "Bookmarked" : "Bookmark";
+    CMA.bindReviewActions(card, (id) => allQuestions.find((question) => question.question_id === id), () => {
       updateScore();
-      if (reviewMode === "bookmarks" && !nowBookmarked) rebuildPool(false);
+      if (reviewMode === "bookmarks" || reviewMode === "needs") rebuildPool(false);
     });
   }
 
@@ -155,6 +160,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.querySelectorAll("[data-choice]").forEach((button) => {
       button.classList.toggle("selected", button.dataset.choice === originalLabel);
     });
+    const submitButton = card.querySelector("[data-submit-answer]");
+    if (submitButton) submitButton.disabled = false;
   }
 
   function showFeedback(correct, autoSubmitted = false) {
@@ -199,11 +206,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function nextQuestion() {
     if (timerExpired) return;
-    if (reviewMode === "missed" || reviewMode === "bookmarks") {
+    if (reviewMode === "missed" || reviewMode === "bookmarks" || reviewMode === "needs") {
       pool = CMA.applyFilters(allQuestions, readFilters());
     }
     if (!pool.length) {
-      const label = reviewMode === "missed" ? "missed questions" : reviewMode === "bookmarks" ? "bookmarked questions" : "questions";
+      const label = reviewMode === "missed" ? "missed questions" : reviewMode === "bookmarks" ? "bookmarked questions" : reviewMode === "needs" ? "needs-review questions" : "questions";
       card.innerHTML = `<div class="empty">No ${label} match the current selection.</div>`;
       return;
     }
@@ -248,7 +255,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const category = params.get("category");
     if (category) filters.category.value = category;
     const urlReview = params.get("review");
-    if (urlReview === "missed" || urlReview === "bookmarks") reviewMode = urlReview;
+    if (urlReview === "missed" || urlReview === "bookmarks" || urlReview === "needs") reviewMode = urlReview;
     if (params.get("query")) filters.query.value = params.get("query");
     setMode(reviewMode);
   }
@@ -278,6 +285,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       setMode("bookmarks");
       rebuildPool();
     });
+    modeButtons.needs.addEventListener("click", () => {
+      studyMode = false;
+      setMode("needs");
+      rebuildPool();
+    });
     timerSelect.addEventListener("change", () => startTimer(Number(timerSelect.value)));
   }
 
@@ -288,6 +300,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     CMA.populateSelect(filters.category, values.categories, "All books");
     CMA.populateSelect(filters.difficulty, values.difficulties, "All difficulties");
     CMA.populateSelect(filters.tag, values.tags, "All tags");
+    CMA.populateSelect(filters.probability, values.probabilities, "All probabilities");
     setModeFromUrl();
     bindControls();
     startTimer(Number(timerSelect.value));

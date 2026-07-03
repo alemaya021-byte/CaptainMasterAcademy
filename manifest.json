@@ -1,7 +1,7 @@
 {
   "name": "Captain Master Academy Professional Edition",
   "short_name": "Captain Academy",
-  "description": "MDFR Captain promotional exam simulator, adaptive study, flashcards, and analytics.",
+  "description": "MDFR Captain promotional exam simulator, adaptive study, flashcards, search, review, and analytics.",
   "id": "./",
   "start_url": "./index.html",
   "scope": "./",

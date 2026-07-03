@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1f5a7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Captain Academy">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Search - Captain Master Academy</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header data-app-header></header>
+      <main class="main">
+        <section class="page-head">
+          <div>
+            <p class="eyebrow">Search and filter</p>
+            <h1>Find the exact policy, SOP, article, or weak item you need.</h1>
+          </div>
+          <div class="action-row">
+            <a class="ghost-button" href="quiz.html">Open Study Mode</a>
+            <button class="ghost-button" type="button" data-print-search>Print Results</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="filter-row">
+            <div class="field wide">
+              <label for="search-keyword">Keyword</label>
+              <input id="search-keyword" data-search-query placeholder="Keyword, policy, SOP, chapter, article, tag">
+            </div>
+            <div class="field">
+              <label for="search-id">Question ID</label>
+              <input id="search-id" data-search-id placeholder="CMA-P5-5000">
+            </div>
+            <div class="field">
+              <label for="search-source">Source</label>
+              <select id="search-source" data-search-source></select>
+            </div>
+            <div class="field">
+              <label for="search-code">Policy / SOP</label>
+              <select id="search-code" data-search-code></select>
+            </div>
+            <div class="field">
+              <label for="search-book">Book</label>
+              <select id="search-book" data-search-book></select>
+            </div>
+            <div class="field">
+              <label for="search-chapter">Chapter / Article</label>
+              <select id="search-chapter" data-search-chapter></select>
+            </div>
+            <div class="field">
+              <label for="search-difficulty">Difficulty</label>
+              <select id="search-difficulty" data-search-difficulty></select>
+            </div>
+            <div class="field">
+              <label for="search-tag">Tag</label>
+              <select id="search-tag" data-search-tag></select>
+            </div>
+            <div class="field">
+              <label for="search-probability">Exam Probability</label>
+              <select id="search-probability" data-search-probability></select>
+            </div>
+          </div>
+          <div class="filter-row compact-checks" style="margin-top:12px">
+            <label><input type="checkbox" data-search-missed> Missed only</label>
+            <label><input type="checkbox" data-search-bookmarked> Bookmarked only</label>
+            <label><input type="checkbox" data-search-needs> Needs-review only</label>
+          </div>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack print-section">
+            <h2>Results</h2>
+            <div class="pill-row">
+              <span class="pill" data-search-count>0 results</span>
+            </div>
+            <div data-search-results></div>
+          </div>
+          <aside class="panel stack">
+            <h2>Search Coverage</h2>
+            <div data-search-facets></div>
+          </aside>
+        </section>
+      </main>
+    </div>
+    <script src="js/storage.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/search.js"></script>
+  </body>
+</html>

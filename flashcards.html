@@ -24,6 +24,7 @@
           <div class="action-row">
             <button class="ghost-button" type="button" data-card-bookmarks>Bookmarks</button>
             <button class="ghost-button" type="button" data-card-missed>Missed</button>
+            <button class="ghost-button" type="button" data-card-needs>Needs Review</button>
             <button class="ghost-button" type="button" data-card-due>Due Reviews</button>
             <button class="ghost-button" type="button" data-card-shuffle>Shuffle</button>
           </div>
@@ -51,6 +52,7 @@
         </section>
 
         <section style="margin-top:16px">
+          <div class="grid four" data-card-stats style="margin-bottom:16px"></div>
           <div class="flashcard" data-flashcard>
             <div class="empty">Loading flashcards...</div>
           </div>
@@ -62,6 +64,8 @@
             <div class="action-row">
               <button class="ghost-button" type="button" data-card-prev>Previous</button>
               <button class="button" type="button" data-card-flip>Flip</button>
+              <button class="ghost-button" type="button" data-card-review>Review Details</button>
+              <button class="ghost-button" type="button" data-card-mark-needs>Needs Review</button>
               <button class="button bad" type="button" data-card-again>Again</button>
               <button class="button warn" type="button" data-card-hard>Hard</button>
               <button class="button good" type="button" data-card-good>Good</button>

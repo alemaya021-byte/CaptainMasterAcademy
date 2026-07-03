@@ -8,6 +8,7 @@ Clean public deployment package for the Captain Master Academy interactive web a
 - Practice quiz: `quiz.html`
 - Promotional exam simulator: `exam.html`
 - Flashcards: `flashcards.html`
+- Search and filters: `search.html`
 - Analytics: `statistics.html`
 - App styles: `css/`
 - App scripts: `js/`
@@ -53,3 +54,13 @@ data/questions.json
 ```
 
 The deployment database contains exactly 5,000 questions.
+
+## Professional Features
+
+- Question review panel with source references, rationales, tags, keywords, and issue reporting.
+- Local issue reports with JSON and CSV export.
+- Readiness score, predicted pass probability, strongest and weakest topics, trends, and missed-question analytics.
+- Missed-question mastery workflow requiring two consecutive correct answers.
+- Bookmark and needs-review drills.
+- Spaced repetition flashcards with Again, Hard, Good, and Easy ratings.
+- Offline-capable PWA with cache refresh through `service-worker.js`.

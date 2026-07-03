@@ -21,10 +21,20 @@
             <p class="eyebrow">Analytics dashboard</p>
             <h1>Overall score, weak areas, streaks, and progress graphs.</h1>
           </div>
-          <button class="ghost-button" type="button" data-reset-progress>Reset Progress</button>
+          <div class="action-row">
+            <button class="ghost-button" type="button" data-print-dashboard>Print Dashboard</button>
+            <button class="ghost-button" type="button" data-export-issues-json>Export Issues JSON</button>
+            <button class="ghost-button" type="button" data-export-issues-csv>Export Issues CSV</button>
+            <button class="ghost-button" type="button" data-reset-progress>Reset Progress</button>
+          </div>
         </section>
 
         <section class="grid three" data-summary-cards></section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack print-section" data-readiness-panel></div>
+          <aside class="panel stack" data-next-actions></aside>
+        </section>
 
         <section class="grid two" style="margin-top:16px">
           <div class="panel stack">
@@ -32,9 +42,11 @@
             <div data-area-table></div>
           </div>
           <aside class="panel stack">
-            <h2>Progress Graphs</h2>
+            <h2>Progress Trends</h2>
             <div data-daily-graph></div>
             <div data-weekly-graph></div>
+            <div data-monthly-graph></div>
+            <div data-quarterly-graph></div>
           </aside>
         </section>
 
@@ -44,10 +56,29 @@
             <div class="table-wrap" data-source-table></div>
           </div>
           <aside class="panel stack">
+            <h2>Accuracy By Chapter / Policy / SOP / Article</h2>
+            <div class="table-wrap" data-chapter-table></div>
+          </aside>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack print-section">
+            <h2>Strongest Topics</h2>
+            <div data-strong-topic-list></div>
+            <h2>Weakest Topics</h2>
+            <div data-weak-topic-list></div>
+            <h2>Missed Questions By Source</h2>
+            <div data-missed-source-list></div>
+          </div>
+          <aside class="panel stack print-section">
             <h2>Missed Questions</h2>
             <div data-missed-list></div>
             <h2>Bookmarks</h2>
             <div data-bookmark-list></div>
+            <h2>Needs Review</h2>
+            <div data-needs-list></div>
+            <h2>Reported Question Issues</h2>
+            <div data-report-list></div>
           </aside>
         </section>
       </main>

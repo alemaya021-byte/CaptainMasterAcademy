@@ -241,6 +241,7 @@ document.addEventListener("DOMContentLoaded", async () => {
               <span>${CMA.escapeHtml(question.question_stem)}</span>
               <span class="muted">Correct: ${correctChoice.displayLabel}. ${CMA.escapeHtml(correctChoice.text)}</span>
               <span class="muted">Selected: ${selectedChoice ? `${selectedChoice.displayLabel}. ${CMA.escapeHtml(selectedChoice.text)}` : "No answer"}</span>
+              <div class="action-row">${CMA.reviewActionsHtml(question)}</div>
             </div>
           `)
           .join("")}
@@ -297,6 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       </section>
     `;
     card.querySelector("[data-print-report]").addEventListener("click", () => window.print());
+    CMA.bindReviewActions(card, (id) => byId.get(id));
     results.innerHTML = `
       <h2>Score By Source</h2>
       ${[...bySource.values()]

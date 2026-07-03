@@ -13,7 +13,7 @@ Date: July 3, 2026
 - All app paths are relative.
 - `.nojekyll` is present.
 - App files are at the repository root for GitHub Pages publishing.
-- GitHub Pages workflow is configured to publish the repository root on pushes to `main`.
+- GitHub Pages branch/root publishing is active for pushes to `main`.
 - `data/questions.json` remains in `data/questions.json`.
 - Local server validation passed before push.
 - PWA cache includes the current deployable assets.
@@ -37,6 +37,7 @@ Date: July 3, 2026
 ## Live Deployment Validation
 
 - Pages workflow completed successfully for commit `5dd6fd9ad5d462cd115e5ecaedac53e7509ab9cc`.
+- GitHub Pages dynamic deployment completed successfully for commit `97f01caa33cee7096226a2318cd0164352512dd5`.
 - Public URL verified: `https://alemaya021-byte.github.io/CaptainMasterAcademy/`
 - Live `index.html`, `css/style.css`, `js/app.js`, `search.html`, and `service-worker.js` returned HTTP 200.
 - Live service worker contains cache version `captain-master-academy-deploy-v2`.

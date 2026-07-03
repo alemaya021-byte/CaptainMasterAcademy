@@ -13,6 +13,21 @@
     { category: "Administrative Orders", count: 2 },
   ];
 
+  const EXAM_BLUEPRINTS = [
+    { id: "official", label: "Official Captain Simulation", description: "125-question mixed promotional exam distribution", mode: "official" },
+    { id: "policies", label: "Policies Only", filters: { category: "Policies & Procedures" } },
+    { id: "sop", label: "SOP Only", filters: { category: "SOPs" } },
+    { id: "fire-officer", label: "Fire Officer", filters: { area: "Fire Officer" } },
+    { id: "incident-safety", label: "Incident Safety Officer", filters: { area: "Incident Safety Officer" } },
+    { id: "cba", label: "CBA", filters: { category: "Collective Bargaining Agreement" } },
+    { id: "high-rise", label: "High-Rise", filters: { area: "High-Rise" } },
+    { id: "mom", label: "MOM", filters: { category: "Medical Operations Manual" } },
+    { id: "rapid-review", label: "Rapid Review", filters: { probability: "High" } },
+    { id: "hard", label: "Hard Questions Only", filters: { difficulty: "Hard" } },
+    { id: "weak", label: "Weak Topics Only", mode: "weak" },
+    { id: "random", label: "Random Mixed", mode: "random" },
+  ];
+
   const ANALYTICS_AREAS = [
     "Administrative Orders",
     "Policies",
@@ -227,6 +242,13 @@
       question.source_section,
       question.question_type,
       question.difficulty,
+      question.difficulty_score,
+      question.bloom_level,
+      question.captain_competency,
+      ...(question.captain_competencies || []),
+      question.topic,
+      question.subtopic,
+      question.exam_frequency_estimate,
       question.estimated_exam_probability,
       question.question_stem,
       sourceCode(question),
@@ -317,6 +339,20 @@
       sample(questions.filter((q) => !used.has(q.question_id)), count - selected.length).forEach((question) => selected.push(question));
     }
     return shuffle(selected).slice(0, count);
+  }
+
+  function questionsForBlueprint(questions, blueprintId = "official", count = 125) {
+    const blueprint = EXAM_BLUEPRINTS.find((item) => item.id === blueprintId) || EXAM_BLUEPRINTS[0];
+    if (blueprint.mode === "official") return blueprintSample(questions, count);
+    if (blueprint.mode === "random") return sample(questions, count);
+    if (blueprint.mode === "weak") {
+      const weakLabels = new Set(weakTopics(questions, 20).map((row) => row.label));
+      const weakPool = questions.filter((question) => weakLabels.has(chapterLabel(question)) || isMissed(question.question_id));
+      const source = weakPool.length ? weakPool : adaptiveSelection(questions, Math.min(count, questions.length));
+      return sample(source, count);
+    }
+    const filtered = applyFilters(questions, blueprint.filters || {});
+    return sample(filtered, count);
   }
 
   function answerRecord(questionId) {
@@ -746,6 +782,91 @@
       .slice(0, limit);
   }
 
+  function confidenceLabel(summary) {
+    if (summary.attempts >= 250 && (progress.exams || []).length) return "High";
+    if (summary.attempts >= 75) return "Moderate";
+    return "Low";
+  }
+
+  function studyCoach(questions, context = {}) {
+    const summary = scoreSummary();
+    const readiness = readinessModel(questions);
+    const strong = strongestTopics(questions, 3);
+    const weak = weakTopics(questions, 5);
+    const flashcards = flashcardStats();
+    const missed = missedIds().length;
+    const confidence = confidenceLabel(summary);
+    const predictedPassProbability = Math.max(1, Math.min(99, Math.round(readiness.score * 0.85 + (readiness.examAverage || readiness.recent || summary.accuracy || 55) * 0.15)));
+    const weakLead = weak[0]?.label || "mixed official blueprint";
+    const studyMinutes = readiness.score >= 85 ? 30 : readiness.score >= 72 ? 45 : readiness.score >= 55 ? 60 : 90;
+    const recommendedQuiz = missed ? "Missed Questions Only" : weak.length ? "Weak Topics Only" : context.examPct ? "Official Captain Simulation" : "Adaptive Study";
+    const recommendedChapters = weak.length ? weak.map((row) => row.label).slice(0, 3) : ["Official Captain Simulation", "Rapid Review", "Hard Questions Only"];
+    const recommendedFlashcards = flashcards.dueToday || flashcards.overdue ? `${flashcards.dueToday + flashcards.overdue} due or overdue flashcards` : "Create flashcards from missed and needs-review questions";
+    const recommendedMissed = missed ? `${missed} missed questions need two consecutive correct answers` : "No missed-question backlog";
+    return {
+      readiness,
+      predictedPassProbability,
+      confidence,
+      strongestSubjects: strong.map((row) => row.label),
+      weakestSubjects: weak.map((row) => row.label),
+      recommendedStudyTime: `${studyMinutes} minutes`,
+      recommendedQuiz,
+      recommendedChapters,
+      recommendedFlashcards,
+      recommendedMissed,
+      recommendations: [
+        { label: `Study ${weakLead}`, confidence },
+        { label: `Run ${recommendedQuiz}`, confidence: missed || weak.length ? "High" : confidence },
+        { label: recommendedFlashcards, confidence: flashcards.total ? "High" : "Moderate" },
+        { label: recommendedMissed, confidence: missed ? "High" : "Moderate" },
+      ],
+    };
+  }
+
+  function studyCoachHtml(questions, context = {}) {
+    const coach = studyCoach(questions, context);
+    const strong = coach.strongestSubjects.length ? coach.strongestSubjects : ["Complete more questions to identify strengths"];
+    const weak = coach.weakestSubjects.length ? coach.weakestSubjects : ["Complete more questions to identify weak areas"];
+    return `
+      <div class="stack">
+        <div class="readiness-meter"><span style="width:${coach.readiness.score}%"></span></div>
+        <div class="grid two">
+          <div class="stat-card"><div class="label">Readiness</div><div class="value">${coach.readiness.score}%</div><span class="muted">${escapeHtml(coach.readiness.category)}</span></div>
+          <div class="stat-card"><div class="label">Predicted Pass</div><div class="value">${coach.predictedPassProbability}%</div><span class="muted">${escapeHtml(coach.confidence)} confidence</span></div>
+        </div>
+        <div class="list-item">
+          <strong>Recommended study time</strong>
+          <span class="muted">${escapeHtml(coach.recommendedStudyTime)} today</span>
+        </div>
+        <div class="list-item">
+          <strong>Recommended quiz</strong>
+          <span class="muted">${escapeHtml(coach.recommendedQuiz)}</span>
+        </div>
+        <div class="list-item">
+          <strong>Strongest subjects</strong>
+          <span class="muted">${escapeHtml(strong.join(", "))}</span>
+        </div>
+        <div class="list-item">
+          <strong>Weakest subjects</strong>
+          <span class="muted">${escapeHtml(weak.join(", "))}</span>
+        </div>
+        <div class="list-item">
+          <strong>Recommended chapters</strong>
+          <span class="muted">${escapeHtml(coach.recommendedChapters.join(", "))}</span>
+        </div>
+        <div class="list-item">
+          <strong>Flashcards</strong>
+          <span class="muted">${escapeHtml(coach.recommendedFlashcards)}</span>
+        </div>
+        <div class="list-item">
+          <strong>Missed questions</strong>
+          <span class="muted">${escapeHtml(coach.recommendedMissed)}</span>
+        </div>
+        ${coach.recommendations.map((item) => `<div class="list-item"><strong>${escapeHtml(item.label)}</strong><span class="pill">${escapeHtml(item.confidence)} confidence</span></div>`).join("")}
+      </div>
+    `;
+  }
+
   function missedBySource(questions) {
     const byId = new Map(questions.map((question) => [question.question_id, question]));
     const rows = new Map();
@@ -1018,6 +1139,7 @@
 
   window.CMA = {
     BLUEPRINT,
+    EXAM_BLUEPRINTS,
     ANALYTICS_AREAS,
     progress,
     renderShell,
@@ -1036,6 +1158,7 @@
     shuffle,
     sample,
     blueprintSample,
+    questionsForBlueprint,
     displayChoices,
     recordAnswer,
     setExamResult,
@@ -1055,6 +1178,8 @@
     strongestTopics,
     missedBySource,
     readinessModel,
+    studyCoach,
+    studyCoachHtml,
     flashcardStats,
     recentAccuracy,
     adaptiveSelection,

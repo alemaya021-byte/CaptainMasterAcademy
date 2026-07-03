@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const timerSelect = document.querySelector("[data-quiz-timer-select]");
   const timerDisplay = document.querySelector("[data-quiz-timer]");
   const studyNote = document.querySelector("[data-study-note]");
+  const studyCoach = document.querySelector("[data-study-coach]");
   const modeButtons = {
     all: document.querySelector("[data-normal-mode]"),
     adaptive: document.querySelector("[data-adaptive-mode]"),
@@ -51,6 +52,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     scorePercent.textContent = `${pct}%`;
     scoreBar.style.width = `${pct}%`;
     CMA.renderSourceScores(sourceScores, 8);
+    if (studyCoach && allQuestions.length) {
+      studyCoach.innerHTML = CMA.studyCoachHtml(allQuestions, { localCorrect, localAnswered, currentQuestion: current });
+    }
   }
 
   function setMode(mode) {

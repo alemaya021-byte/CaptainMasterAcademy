@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const results = document.querySelector("[data-exam-results]");
   const startButton = document.querySelector("[data-start-exam]");
   const sizeSelect = document.querySelector("[data-exam-size]");
+  const blueprintSelect = document.querySelector("[data-exam-blueprint]");
   const resumePanel = document.querySelector("[data-resume-panel]");
   const navigatorGrid = document.querySelector("[data-exam-navigator]");
   const filters = {
@@ -165,8 +166,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderQuestion();
   }
 
-  function createExam(questions, size) {
-    const selected = size === 125 ? CMA.blueprintSample(questions, 125) : CMA.sample(CMA.applyFilters(questions, readFilters()), size);
+  function createExam(selected, size, blueprintId) {
+    const blueprint = CMA.EXAM_BLUEPRINTS.find((item) => item.id === blueprintId) || CMA.EXAM_BLUEPRINTS[0];
     const now = Date.now();
     return {
       id: `exam-${now}`,
@@ -180,19 +181,24 @@ document.addEventListener("DOMContentLoaded", async () => {
       startedAt: new Date(now).toISOString(),
       endsAt: new Date(now + size * 60 * 1000).toISOString(),
       questionStartedAt: now,
-      blueprint: size === 125 ? CMA.BLUEPRINT : [],
+      blueprint: { id: blueprint.id, label: blueprint.label },
     };
   }
 
   function startExam() {
     const size = Number(sizeSelect.value);
-    const source = size === 125 ? allQuestions : CMA.applyFilters(allQuestions, readFilters());
-    if (source.length < size) {
-      CMA.statusMessage(card, `Only ${source.length} questions match those filters. Adjust the filters or choose a shorter exam.`);
+    const blueprintId = blueprintSelect?.value || "official";
+    const activeFilters = readFilters();
+    const hasActiveFilters = Boolean(activeFilters.query || activeFilters.category || activeFilters.difficulty);
+    const filteredPool = CMA.applyFilters(allQuestions, activeFilters);
+    const source = hasActiveFilters ? filteredPool : allQuestions;
+    const selected = CMA.questionsForBlueprint(source, blueprintId, size);
+    if (selected.length < size) {
+      CMA.statusMessage(card, `Only ${selected.length} questions match that blueprint and filter combination. Adjust the filters or choose a shorter exam.`);
       return;
     }
     submitted = false;
-    exam = createExam(source, size);
+    exam = createExam(selected, size, blueprintId);
     results.innerHTML = "";
     resumePanel.classList.add("hidden");
     saveExam();
@@ -283,6 +289,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       <section class="print-report">
         <h2>Captain Promotional Exam Report</h2>
         <p style="margin-top:8px"><strong>Score:</strong> ${correct}/${exam.questionIds.length} (${pct}%)</p>
+        <p><strong>Blueprint:</strong> ${CMA.escapeHtml(exam.blueprint?.label || "Official Captain Simulation")}</p>
         <p><strong>Flagged questions:</strong> ${flagged.length}</p>
         <p><strong>Status:</strong> ${autoSubmitted ? "Auto-submitted when time expired." : "Submitted by candidate."}</p>
         <div class="feedback show ${pct >= 70 ? "correct" : "incorrect"}">
@@ -309,13 +316,17 @@ document.addEventListener("DOMContentLoaded", async () => {
           return `<div class="source-score"><strong>${CMA.escapeHtml(row.source)}</strong><span class="muted">${row.correct}/${row.total} correct - ${rowPct}%</span><div class="bar"><span style="width:${rowPct}%"></span></div></div>`;
         })
         .join("")}
+      <h2>Study Coach</h2>
+      ${CMA.studyCoachHtml(allQuestions, { examPct: pct })}
     `;
     exam = null;
     renderResumePanel();
   }
 
   function setInitialMode() {
-    if (new URLSearchParams(location.search).get("simulation") === "125") sizeSelect.value = "125";
+    const params = new URLSearchParams(location.search);
+    if (params.get("simulation") === "125") sizeSelect.value = "125";
+    if (params.get("blueprint") && blueprintSelect) blueprintSelect.value = params.get("blueprint");
   }
 
   try {
@@ -325,6 +336,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const values = CMA.collectFilterValues(questions);
     CMA.populateSelect(filters.category, values.categories, "All books");
     CMA.populateSelect(filters.difficulty, values.difficulties, "All difficulties");
+    if (blueprintSelect) {
+      blueprintSelect.innerHTML = CMA.EXAM_BLUEPRINTS.map((item) => `<option value="${CMA.escapeHtml(item.id)}">${CMA.escapeHtml(item.label)}</option>`).join("");
+    }
     setInitialMode();
     startButton.addEventListener("click", startExam);
     renderResumePanel();

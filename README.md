@@ -53,7 +53,7 @@ The app loads questions from:
 data/questions.json
 ```
 
-The deployment database contains exactly 5,000 questions.
+The deployment database contains exactly 7,000 questions.
 
 ## Professional Features
 
@@ -64,3 +64,4 @@ The deployment database contains exactly 5,000 questions.
 - Bookmark and needs-review drills.
 - Spaced repetition flashcards with Again, Hard, Good, and Easy ratings.
 - Offline-capable PWA with cache refresh through `service-worker.js`.
+- Phase 6 coverage metadata, built-in exam blueprints, and Study Coach recommendations.

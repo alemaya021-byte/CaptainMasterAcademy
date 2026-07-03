@@ -1,4 +1,4 @@
-const CACHE_NAME = "captain-master-academy-deploy-v2";
+const CACHE_NAME = "captain-master-academy-phase6-v1";
 const APP_SHELL = [
   "./",
   "index.html",

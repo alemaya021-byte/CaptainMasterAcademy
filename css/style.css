@@ -1211,3 +1211,210 @@ th {
 .chief-profile {
   margin-top: 8px;
 }
+
+/* Version 2.4 Captain Command Performance Center */
+.performance-metrics .stat-card .value {
+  font-size: 28px;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.segmented button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.segmented button.active-mode {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--panel));
+  color: var(--brand-strong);
+}
+
+.performance-chart {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  contain: inline-size;
+}
+
+.timeline-grid {
+  display: grid;
+  grid-template-columns: repeat(30, minmax(34px, 1fr));
+  gap: 8px;
+  min-height: 176px;
+  align-items: end;
+}
+
+.timeline-grid.compact {
+  min-width: 920px;
+}
+
+.timeline-day {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.timeline-bars {
+  display: flex;
+  align-items: end;
+  gap: 3px;
+  height: 132px;
+}
+
+.timeline-bar {
+  width: 9px;
+  min-height: 6px;
+  border-radius: 5px 5px 0 0;
+  background: var(--brand);
+  position: relative;
+}
+
+.timeline-bar:nth-child(2) {
+  background: var(--good);
+}
+
+.timeline-bar:nth-child(3) {
+  background: var(--warn);
+}
+
+.timeline-bar span {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.timeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.timeline-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.legend.exam {
+  background: var(--good);
+}
+
+.legend.incident {
+  background: var(--warn);
+}
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.scorecard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 14px;
+}
+
+.scorecard-row > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.score-ring {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at center, var(--panel) 57%, transparent 58%),
+    conic-gradient(var(--brand) calc(var(--score) * 1%), color-mix(in srgb, var(--line) 72%, transparent) 0);
+  font-weight: 900;
+}
+
+.coach-mission {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 14px;
+}
+
+.coach-mission p {
+  margin: 8px 0 0;
+}
+
+.milestone-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.timeline-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  contain: inline-size;
+}
+
+.timeline-table table {
+  min-width: 980px;
+}
+
+@media (max-width: 860px) {
+  .section-head,
+  .scorecard-row {
+    display: grid;
+  }
+
+  .scorecard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .segmented {
+    width: 100%;
+  }
+
+  .segmented button {
+    flex: 1 1 128px;
+  }
+}

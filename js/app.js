@@ -49,6 +49,7 @@
     ["quiz.html", "Study"],
     ["exam.html", "Exam"],
     ["incident.html", "Incidents"],
+    ["performance.html", "Performance"],
     ["flashcards.html", "Flashcards"],
     ["search.html", "Search"],
     ["statistics.html", "Analytics"],
@@ -1603,6 +1604,7 @@
         </div>
         <div class="action-row">
           <a class="button" href="exam.html?simulation=125">Start 125-Question Exam</a>
+          <a class="ghost-button" href="performance.html">Performance Center</a>
           <a class="ghost-button" href="incident.html">Incident Simulator</a>
           <a class="ghost-button" href="quiz.html?mode=adaptive">Adaptive Study</a>
           <a class="ghost-button" href="search.html">Search Bank</a>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1f5a7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Captain Academy">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Captain Readiness Center - Captain Master Academy</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header data-app-header></header>
+      <main class="main">
+        <section class="page-head">
+          <div>
+            <p class="eyebrow">Captain Command Performance Center</p>
+            <h1>Executive readiness, command performance, and daily mission control.</h1>
+          </div>
+          <div class="action-row">
+            <button class="ghost-button" type="button" data-sync-now>Sync Now</button>
+            <button class="ghost-button" type="button" data-print-performance>Print Center</button>
+          </div>
+        </section>
+
+        <section class="panel stack" data-cloud-panel>
+          <div class="empty">Loading cloud and readiness status...</div>
+        </section>
+
+        <section class="grid four performance-metrics" style="margin-top:16px" data-readiness-metrics>
+          <div class="empty">Loading performance metrics...</div>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack">
+            <h2>Readiness Trend</h2>
+            <div class="grid three" data-trend-metrics></div>
+            <div class="performance-chart" data-readiness-chart></div>
+          </div>
+          <aside class="panel stack">
+            <h2>Daily AI Coach</h2>
+            <div data-daily-coach></div>
+          </aside>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px">
+          <h2>Command Performance Scorecard</h2>
+          <div data-command-scorecard></div>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack">
+            <h2>Weakness Intelligence</h2>
+            <div data-weakness-intelligence></div>
+          </div>
+          <aside class="panel stack">
+            <h2>Milestones</h2>
+            <div data-milestones></div>
+          </aside>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px">
+          <div class="section-head">
+            <div>
+              <h2>Performance Timeline</h2>
+              <p class="muted">Daily readiness, mastery, confidence, retention, exams, incidents, streaks, milestones, and version upgrades.</p>
+            </div>
+            <div class="segmented">
+              <button type="button" data-timeline-range="7">Week</button>
+              <button type="button" data-timeline-range="30" class="active-mode">Month</button>
+              <button type="button" data-timeline-range="90">Quarter</button>
+              <button type="button" data-timeline-range="all">Entire History</button>
+            </div>
+          </div>
+          <div data-performance-timeline></div>
+        </section>
+      </main>
+    </div>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/adaptiveEngine.js"></script>
+    <script src="js/sync.js"></script>
+    <script type="module" src="js/syncEngine.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/chiefMentor.js"></script>
+    <script src="js/performanceCenter.js"></script>
+  </body>
+</html>

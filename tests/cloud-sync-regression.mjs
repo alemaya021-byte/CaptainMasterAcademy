@@ -593,13 +593,13 @@ It validates:
 ## Run Locally
 
 \`\`\`powershell
-npm run test:cloud-sync
+node tests/cloud-sync-regression.mjs
 \`\`\`
 
 To refresh this report after a local run:
 
 \`\`\`powershell
-npm run test:cloud-sync:report
+node tests/cloud-sync-regression.mjs --write-report
 \`\`\`
 
 ## Latest Result

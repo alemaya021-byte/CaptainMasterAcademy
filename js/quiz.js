@@ -186,6 +186,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       <p style="margin-top:10px"><strong>Rationale:</strong> ${CMA.escapeHtml(current.detailed_rationale)}</p>
       <p style="margin-top:10px"><strong>Source reference:</strong> ${CMA.escapeHtml(CMA.sourceLabel(current))}</p>
       ${incorrectExplanations()}
+      ${!correct ? CMA.miniLessonHtml(current, selectedOriginalLabel, allQuestions) : ""}
     `;
     const submitButton = card.querySelector("[data-submit-answer]");
     if (submitButton) submitButton.disabled = true;
@@ -203,6 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const responseMs = questionStartedAt ? Date.now() - questionStartedAt : 0;
     const correct = CMA.recordAnswer(current, selectedOriginalLabel, autoSubmitted ? "quiz-timer" : studyMode ? "adaptive-study" : "quiz", { responseMs });
     CMA.refreshAdaptive(allQuestions, true);
+    if (!correct) CMA.handleIncorrectLearningEvent(current, selectedOriginalLabel, allQuestions);
     localAnswered += 1;
     localCorrect += correct ? 1 : 0;
     showFeedback(correct, autoSubmitted);

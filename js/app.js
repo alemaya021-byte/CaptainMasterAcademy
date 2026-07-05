@@ -42,6 +42,8 @@
     "NIMS",
   ];
 
+  let questionCatalog = [];
+
   const navItems = [
     ["index.html", "Dashboard"],
     ["quiz.html", "Study"],
@@ -65,6 +67,7 @@
       activeExam: null,
       daily: {},
       adaptive: window.CMAAdaptiveEngine ? window.CMAAdaptiveEngine.ensure({}) : {},
+      tutor: { events: [] },
       darkMode: false,
       updatedAt: "",
     };
@@ -85,6 +88,7 @@
       activeExam: parsed.activeExam || null,
       daily: parsed.daily || {},
       adaptive: parsed.adaptive || {},
+      tutor: parsed.tutor || { events: [] },
       darkMode: Boolean(parsed.darkMode),
     };
     if (window.CMAAdaptiveEngine) window.CMAAdaptiveEngine.ensure(progress);
@@ -187,6 +191,7 @@
     }
     const questions = Array.isArray(payload) ? payload : payload.questions || [];
     if (!questions.length) throw new Error(dataLoadError("The file loaded, but it did not contain a non-empty questions array."));
+    questionCatalog = questions;
     return { metadata: payload.metadata || {}, questions };
   }
 
@@ -552,6 +557,7 @@
     progress.activeExam = null;
     progress.daily = {};
     progress.adaptive = emptyProgress().adaptive;
+    progress.tutor = { events: [] };
     writeProgress(progress);
   }
 
@@ -967,7 +973,336 @@
     return question.answer_choices?.[label] || "";
   }
 
+  function sharedTerms(left = [], right = []) {
+    const rightSet = new Set((right || []).map(normalize).filter(Boolean));
+    return (left || []).map(normalize).filter(Boolean).filter((term) => rightSet.has(term));
+  }
+
+  function relatedQuestionRows(question, questions = questionCatalog, limit = 6) {
+    const keywords = question.keywords || [];
+    const tags = question.tags || [];
+    const code = sourceCode(question);
+    return (questions || [])
+      .filter((candidate) => candidate.question_id !== question.question_id)
+      .map((candidate) => {
+        let score = 0;
+        if (sourceCode(candidate) === code) score += 8;
+        if (candidate.source_category === question.source_category) score += 3;
+        if (candidate.difficulty === question.difficulty) score += 1;
+        if (candidate.question_type && candidate.question_type === question.question_type) score += 2;
+        if (candidate.topic && question.topic && candidate.topic === question.topic) score += 5;
+        score += sharedTerms(keywords, candidate.keywords || []).length * 2;
+        score += sharedTerms(tags, candidate.tags || []).length;
+        return { question: candidate, score };
+      })
+      .filter((row) => row.score > 0)
+      .sort((a, b) => b.score - a.score || a.question.question_id.localeCompare(b.question.question_id))
+      .slice(0, limit);
+  }
+
+  function similarPromotionalRows(question, questions = questionCatalog, limit = 5) {
+    return (questions || [])
+      .filter((candidate) => candidate.question_id !== question.question_id)
+      .map((candidate) => {
+        let score = 0;
+        if (candidate.difficulty === question.difficulty) score += 3;
+        if (candidate.estimated_exam_probability === question.estimated_exam_probability) score += 2;
+        if (candidate.question_type && candidate.question_type === question.question_type) score += 4;
+        if (candidate.bloom_level && candidate.bloom_level === question.bloom_level) score += 2;
+        if (primaryArea(candidate) === primaryArea(question)) score += 2;
+        score += sharedTerms(question.keywords || [], candidate.keywords || []).length;
+        return { question: candidate, score };
+      })
+      .filter((row) => row.score >= 4)
+      .sort((a, b) => b.score - a.score || a.question.question_id.localeCompare(b.question.question_id))
+      .slice(0, limit);
+  }
+
+  function sourceReference(question) {
+    return [
+      sourceLabel(question),
+      question.source_section ? `Section: ${question.source_section}` : "",
+      question.source_page ? `Page: ${question.source_page}` : "",
+    ].filter(Boolean).join(" | ");
+  }
+
+  function relatedPolicies(question, relatedRows = relatedQuestionRows(question, questionCatalog, 12)) {
+    const rows = [question, ...relatedRows.map((row) => row.question)];
+    return uniqueSorted(rows
+      .filter((item) => /policy|policies/i.test([item.source_category, item.source, item.chapter_policy_sop_reference].join(" ")))
+      .map((item) => sourceCode(item) || sourceLabel(item)))
+      .slice(0, 6);
+  }
+
+  function relatedSogs(question, relatedRows = relatedQuestionRows(question, questionCatalog, 12)) {
+    const rows = [question, ...relatedRows.map((row) => row.question)];
+    return uniqueSorted(rows
+      .filter((item) => /sop|sog|standard operating/i.test([item.source_category, item.source, item.chapter_policy_sop_reference].join(" ")))
+      .map((item) => sourceCode(item) || sourceLabel(item)))
+      .slice(0, 6);
+  }
+
+  function trapList(question) {
+    const traps = [];
+    const stem = normalize(question.question_stem);
+    const rationale = normalize(question.detailed_rationale);
+    const incorrectText = normalize(Object.values(question.incorrect_answer_explanations || {}).join(" "));
+    if (stem.includes("except") || stem.includes("not correct")) traps.push("Negative wording: answer the exception, not the true statement.");
+    if (incorrectText.includes("may") || incorrectText.includes("must")) traps.push("May vs. must: test writers often change mandatory language into discretionary language.");
+    if (incorrectText.includes("prior") || incorrectText.includes("after")) traps.push("Timing shift: watch for prior, after, promptly, immediately, and next-business-day wording.");
+    if (incorrectText.includes("driver") || incorrectText.includes("oic") || incorrectText.includes("division chief") || rationale.includes("responsible")) traps.push("Role swap: confirm which rank, unit, bureau, or position owns the action.");
+    if (question.question_type === "Timeline/Number" || /\d/.test(question.question_stem)) traps.push("Number trap: exact counts, days, hours, percentages, and sequence words matter.");
+    if (!traps.length) traps.push("Close-language trap: each distractor is plausible, so anchor the answer to the cited source reference.");
+    return traps.slice(0, 5);
+  }
+
+  function memoryAid(question) {
+    const words = (question.keywords || []).slice(0, 5);
+    if (words.length >= 3) return `Remember the chain: ${words.join(" -> ")}.`;
+    if (question.topic) return `Anchor this item to: ${question.topic}.`;
+    return `Anchor this item to ${sourceCode(question)} and the exact source wording.`;
+  }
+
+  function tacticalConsiderations(question) {
+    const area = primaryArea(question);
+    if (/MOM|medical|EMS/i.test(area)) return "For a Captain, treat the item as a patient-care and documentation control point: confirm the required action, timing, and accountability before delegating.";
+    if (/SOP|High-Rise|Structural|NIMS|Incident Safety/i.test(area)) return "For a Captain, convert the rule into an operational sequence: command objective, crew assignment, safety check, communication, and follow-up.";
+    if (/CBA|Human Resources|Administrative|Policies/i.test(area)) return "For a Captain, apply the rule exactly, document the action, and keep the proper chain of command or approval path intact.";
+    return "For a Captain, identify who owns the decision, what must happen next, and which exception could change the action.";
+  }
+
+  function examinerTesting(question) {
+    const type = question.question_type || question.bloom_level || "source application";
+    const area = primaryArea(question);
+    return `The examiner is testing ${type.toLowerCase()} in ${area}, especially whether you can separate exact source language from plausible Captain-level distractors.`;
+  }
+
+  function questionExplanation(question, questions = questionCatalog, context = {}) {
+    const related = relatedQuestionRows(question, questions, 6);
+    const similar = similarPromotionalRows(question, questions, 5);
+    const selected = context.selectedLabel || "";
+    const selectedExplanation = selected && selected !== question.correct_answer
+      ? question.incorrect_answer_explanations?.[selected] || "The selected answer does not match the cited official source wording."
+      : "";
+    return {
+      questionId: question.question_id,
+      whyCorrect: question.detailed_rationale || `The correct answer matches ${sourceReference(question)}.`,
+      whyIncorrect: Object.entries(question.answer_choices || {})
+        .filter(([label]) => label !== question.correct_answer)
+        .map(([label, text]) => ({
+          label,
+          text,
+          explanation: question.incorrect_answer_explanations?.[label] || "This option changes, adds, or omits a condition from the cited source.",
+        })),
+      sourceReference: sourceReference(question),
+      relatedPolicies: relatedPolicies(question, related),
+      relatedSogs: relatedSogs(question, related),
+      relatedQuestions: related,
+      similarQuestions: similar,
+      traps: trapList(question),
+      keywords: question.keywords || [],
+      memoryAid: memoryAid(question),
+      tacticalConsiderations: tacticalConsiderations(question),
+      examinerTesting: examinerTesting(question),
+      selectedExplanation,
+    };
+  }
+
+  function rowsListHtml(rows, emptyText = "None identified from the current database.") {
+    if (!rows.length) return `<li>${escapeHtml(emptyText)}</li>`;
+    return rows.map((row) => `<li>${escapeHtml(row)}</li>`).join("");
+  }
+
+  function questionRowsHtml(rows) {
+    if (!rows.length) return `<li>No related questions identified from the current database.</li>`;
+    return rows.map(({ question }) => `
+      <li>
+        <strong>${escapeHtml(question.question_id)}</strong>
+        <span class="muted">${escapeHtml(sourceLabel(question))}</span><br>
+        ${escapeHtml(question.question_stem)}
+      </li>
+    `).join("");
+  }
+
+  function explanationPanelHtml(question, questions = questionCatalog, context = {}) {
+    const model = questionExplanation(question, questions, context);
+    return `
+      <div class="tutor-panel stack">
+        <div class="question-meta">
+          <span class="pill">AI Captain Tutor</span>
+          <span class="pill">${escapeHtml(model.questionId)}</span>
+          <span class="pill">${escapeHtml(question.difficulty || "Unrated")}</span>
+        </div>
+        <section class="tutor-section" data-tutor-section="explain">
+          <h3>Why the Correct Answer Is Correct</h3>
+          <p>${escapeHtml(model.whyCorrect)}</p>
+          <h3>Why the Incorrect Answers Are Wrong</h3>
+          <ul class="explanation-list">
+            ${model.whyIncorrect.map((row) => `<li><strong>${escapeHtml(row.label)}.</strong> ${escapeHtml(row.text)}<br><span class="muted">${escapeHtml(row.explanation)}</span></li>`).join("")}
+          </ul>
+        </section>
+        <section class="tutor-section" data-tutor-section="teach">
+          <h3>Mini Lesson</h3>
+          <p>${escapeHtml(miniLessonText(question, context.selectedLabel || ""))}</p>
+          <div class="grid two">
+            <div class="list-item"><strong>Common test-writer traps</strong><ul>${rowsListHtml(model.traps)}</ul></div>
+            <div class="list-item"><strong>Keywords to remember</strong><ul>${rowsListHtml(model.keywords.slice(0, 8), "Use the source reference and answer wording as the keyword anchor.")}</ul></div>
+          </div>
+          <p><strong>Memory aid:</strong> ${escapeHtml(model.memoryAid)}</p>
+          <p><strong>Captain tactical considerations:</strong> ${escapeHtml(model.tacticalConsiderations)}</p>
+          <p><strong>What the examiner is testing:</strong> ${escapeHtml(model.examinerTesting)}</p>
+        </section>
+        <section class="tutor-section" data-tutor-section="reference">
+          <h3>Exact Source Reference</h3>
+          <p>${escapeHtml(model.sourceReference)}</p>
+          <p><strong>Source:</strong> ${escapeHtml(question.source || question.source_category || "Unknown")}</p>
+          <p><strong>Source support:</strong> ${escapeHtml(question.source_support || question.detailed_rationale || "Stored rationale is the available support for this question.")}</p>
+          <h3>Related Policies</h3>
+          <ul>${rowsListHtml(model.relatedPolicies, "No directly related policy code identified.")}</ul>
+          <h3>Related SOGs / SOPs</h3>
+          <ul>${rowsListHtml(model.relatedSogs, "No directly related SOG/SOP identified.")}</ul>
+        </section>
+        <section class="tutor-section" data-tutor-section="related">
+          <h3>Related Questions</h3>
+          <ul class="explanation-list">${questionRowsHtml(model.relatedQuestions)}</ul>
+          <h3>Similar Captain Promotional Questions</h3>
+          <ul class="explanation-list">${questionRowsHtml(model.similarQuestions)}</ul>
+        </section>
+      </div>
+    `;
+  }
+
+  function miniLessonText(question, selectedLabel = "") {
+    const selectedExplanation = selectedLabel && selectedLabel !== question.correct_answer
+      ? question.incorrect_answer_explanations?.[selectedLabel] || "Your selected answer changed a condition from the source."
+      : "";
+    const correctText = answerChoiceText(question, question.correct_answer);
+    return [
+      `Start with the source: ${sourceReference(question)}.`,
+      `The correct answer is ${question.correct_answer}: ${correctText}.`,
+      selectedExplanation ? `Your miss: ${selectedExplanation}` : "",
+      `Trap to avoid: ${trapList(question)[0]}`,
+      `Remember: ${memoryAid(question)}`,
+    ].filter(Boolean).join(" ");
+  }
+
+  function miniLessonHtml(question, selectedLabel = "", questions = questionCatalog) {
+    const model = questionExplanation(question, questions, { selectedLabel });
+    return `
+      <div class="tutor-mini-lesson">
+        <div class="question-meta">
+          <span class="pill">Mini lesson</span>
+          <span class="pill">30-90 sec</span>
+          <span class="pill">Auto flashcard created</span>
+        </div>
+        <p>${escapeHtml(miniLessonText(question, selectedLabel))}</p>
+        <div class="grid two">
+          <div class="list-item"><strong>Examiner focus</strong><span class="muted">${escapeHtml(model.examinerTesting)}</span></div>
+          <div class="list-item"><strong>Review reminder</strong><span class="muted">Due today, then again tomorrow if still missed.</span></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function openTutorPanel(question, mode = "explain", options = {}) {
+    markReviewed(question.question_id);
+    document.querySelector("[data-review-overlay]")?.remove();
+    document.body.insertAdjacentHTML("beforeend", `
+      <div class="review-overlay" data-review-overlay>
+        <section class="review-panel tutor-overlay-panel" role="dialog" aria-modal="true" aria-label="AI Captain Tutor">
+          <div class="review-head">
+            <div>
+              <p class="eyebrow">AI Captain Tutor</p>
+              <h2>${escapeHtml(question.question_id)}</h2>
+            </div>
+            <button class="icon-button" type="button" aria-label="Close tutor" data-close-review>X</button>
+          </div>
+          <div class="toolbar tutor-tabs">
+            <button class="ghost-button" type="button" data-tutor-tab="explain">Explain Question</button>
+            <button class="ghost-button" type="button" data-tutor-tab="teach">Teach Me</button>
+            <button class="ghost-button" type="button" data-tutor-tab="reference">Show Reference</button>
+            <button class="ghost-button" type="button" data-tutor-tab="related">Show Related Questions</button>
+          </div>
+          ${explanationPanelHtml(question, options.questions || questionCatalog, options)}
+        </section>
+      </div>
+    `);
+    const overlay = document.querySelector("[data-review-overlay]");
+    const activate = (nextMode) => {
+      overlay.querySelectorAll("[data-tutor-section]").forEach((section) => section.classList.toggle("hidden", section.dataset.tutorSection !== nextMode));
+      overlay.querySelectorAll("[data-tutor-tab]").forEach((button) => button.classList.toggle("active-mode", button.dataset.tutorTab === nextMode));
+    };
+    overlay.querySelector("[data-close-review]").addEventListener("click", () => overlay.remove());
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) overlay.remove();
+    });
+    overlay.querySelectorAll("[data-tutor-tab]").forEach((button) => {
+      button.addEventListener("click", () => activate(button.dataset.tutorTab));
+    });
+    activate(mode);
+  }
+
+  function scheduleTutorFlashcard(question, selectedLabel = "") {
+    const current = progress.flashcards[question.question_id] || { intervalDays: 0, ease: 2.2, reps: 0 };
+    progress.flashcards[question.question_id] = {
+      ...current,
+      source: "AI Captain Tutor",
+      prompt: question.question_stem,
+      answer: `${question.correct_answer}. ${answerChoiceText(question, question.correct_answer)}`,
+      lesson: miniLessonText(question, selectedLabel),
+      rating: "again",
+      intervalDays: 0,
+      ease: Math.max(1.3, Number(current.ease || 2.2) - 0.15),
+      dueAt: new Date().toISOString(),
+      lastReviewedAt: new Date().toISOString(),
+      createdAt: current.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  function handleIncorrectLearningEvent(question, selectedLabel = "", questions = questionCatalog) {
+    const now = new Date().toISOString();
+    scheduleTutorFlashcard(question, selectedLabel);
+    progress.needsReview[question.question_id] = {
+      ...(progress.needsReview[question.question_id] || {}),
+      at: now,
+      reason: "Incorrect answer in AI Captain Tutor flow",
+      reminderAt: now,
+      nextReminderAt: new Date(Date.now() + DAY_MS).toISOString(),
+      source: sourceReference(question),
+      miniLesson: miniLessonText(question, selectedLabel),
+      updatedAt: now,
+    };
+    if (progress.adaptive?.questions?.[question.question_id]) {
+      const profile = progress.adaptive.questions[question.question_id];
+      profile.confidence = Math.max(0, Math.round((profile.confidence || 0) - 8));
+      profile.mastery = Math.max(0, Math.round((profile.mastery || 0) - 6));
+      profile.retention = Math.max(0, Math.round((profile.retention || 0) - 6));
+      profile.recommendedReviewAt = now;
+      profile.expectedForgettingAt = now;
+      profile.status = "needs review";
+      profile.updatedAt = now;
+    }
+    progress.tutor = progress.tutor || { events: [] };
+    progress.tutor.events = [
+      {
+        id: `tutor-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        question_id: question.question_id,
+        selectedLabel,
+        correctAnswer: question.correct_answer,
+        source: sourceReference(question),
+        lesson: miniLessonText(question, selectedLabel),
+        relatedQuestions: relatedQuestionRows(question, questions, 4).map((row) => row.question.question_id),
+        at: now,
+      },
+      ...(progress.tutor.events || []),
+    ].slice(0, 250);
+    writeProgress(progress);
+    return progress.tutor.events[0];
+  }
+
   function reviewPanelHtml(question) {
+    const tutor = questionExplanation(question, questionCatalog);
     const incorrect = Object.entries(question.incorrect_answer_explanations || {})
       .map(([label, explanation]) => `<li><strong>${escapeHtml(label)}.</strong> ${escapeHtml(answerChoiceText(question, label))}<br><span class="muted">${escapeHtml(explanation)}</span></li>`)
       .join("");
@@ -1000,8 +1335,19 @@
               </div>
               <p><strong>Tags:</strong> ${escapeHtml((question.tags || []).join(", ") || "None")}</p>
               <p><strong>Keywords:</strong> ${escapeHtml((question.keywords || []).join(", ") || "None")}</p>
+              <div class="tutor-mini-lesson">
+                <h3>AI Captain Tutor</h3>
+                <p><strong>What the examiner is testing:</strong> ${escapeHtml(tutor.examinerTesting)}</p>
+                <p><strong>Common trap:</strong> ${escapeHtml(tutor.traps[0])}</p>
+                <p><strong>Memory aid:</strong> ${escapeHtml(tutor.memoryAid)}</p>
+                <p><strong>Captain tactical consideration:</strong> ${escapeHtml(tutor.tacticalConsiderations)}</p>
+              </div>
             </div>
             <aside class="panel stack">
+              <button class="ghost-button" type="button" data-tutor-action="explain" data-tutor-question="${escapeHtml(question.question_id)}">Explain Question</button>
+              <button class="ghost-button" type="button" data-tutor-action="teach" data-tutor-question="${escapeHtml(question.question_id)}">Teach Me</button>
+              <button class="ghost-button" type="button" data-tutor-action="reference" data-tutor-question="${escapeHtml(question.question_id)}">Show Reference</button>
+              <button class="ghost-button" type="button" data-tutor-action="related" data-tutor-question="${escapeHtml(question.question_id)}">Show Related Questions</button>
               <button class="ghost-button" type="button" data-review-bookmark>${isBookmarked(question.question_id) ? "Remove Bookmark" : "Bookmark Question"}</button>
               <button class="ghost-button" type="button" data-review-needs>${isNeedsReview(question.question_id) ? "Clear Needs Review" : "Mark Needs Review"}</button>
               <h3>Report Possible Issue</h3>
@@ -1045,6 +1391,9 @@
       const active = toggleNeedsReview(question.question_id);
       event.currentTarget.textContent = active ? "Clear Needs Review" : "Mark Needs Review";
     });
+    overlay.querySelectorAll("[data-tutor-action]").forEach((button) => {
+      button.addEventListener("click", () => openTutorPanel(question, button.dataset.tutorAction));
+    });
     overlay.querySelector("[data-report-issue]").addEventListener("click", () => {
       const reason = overlay.querySelector("[data-issue-reason]").value;
       const note = overlay.querySelector("[data-issue-note]").value;
@@ -1057,6 +1406,10 @@
 
   function reviewActionsHtml(question) {
     return `
+      <button class="ghost-button" type="button" data-tutor-action="explain" data-tutor-question="${escapeHtml(question.question_id)}">Explain Question</button>
+      <button class="ghost-button" type="button" data-tutor-action="teach" data-tutor-question="${escapeHtml(question.question_id)}">Teach Me</button>
+      <button class="ghost-button" type="button" data-tutor-action="reference" data-tutor-question="${escapeHtml(question.question_id)}">Show Reference</button>
+      <button class="ghost-button" type="button" data-tutor-action="related" data-tutor-question="${escapeHtml(question.question_id)}">Show Related Questions</button>
       <button class="ghost-button" type="button" data-open-review="${escapeHtml(question.question_id)}">Review Details</button>
       <button class="ghost-button" type="button" data-toggle-bookmark="${escapeHtml(question.question_id)}">${isBookmarked(question.question_id) ? "Remove Bookmark" : "Bookmark"}</button>
       <button class="ghost-button" type="button" data-toggle-needs="${escapeHtml(question.question_id)}">${isNeedsReview(question.question_id) ? "Clear Needs Review" : "Needs Review"}</button>
@@ -1064,6 +1417,12 @@
   }
 
   function bindReviewActions(container, questionLookup, onChange = () => {}) {
+    container.querySelectorAll("[data-tutor-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const question = questionLookup(button.dataset.tutorQuestion);
+        if (question) openTutorPanel(question, button.dataset.tutorAction);
+      });
+    });
     container.querySelectorAll("[data-open-review]").forEach((button) => {
       button.addEventListener("click", () => {
         const question = questionLookup(button.dataset.openReview);
@@ -1297,6 +1656,12 @@
     reportIssue,
     issueReports,
     exportIssueReports,
+    questionExplanation,
+    explanationPanelHtml,
+    miniLessonHtml,
+    miniLessonText,
+    handleIncorrectLearningEvent,
+    openTutorPanel,
     openQuestionReview,
     reviewActionsHtml,
     bindReviewActions,

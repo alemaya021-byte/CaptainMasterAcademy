@@ -1104,3 +1104,40 @@ th {
   margin: 6px 0 14px;
   padding-left: 20px;
 }
+
+/* Version 2.2 AI Captain Tutor */
+.tutor-panel {
+  margin-top: 12px;
+}
+
+.tutor-mini-lesson,
+.tutor-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 14px;
+}
+
+.tutor-mini-lesson {
+  margin-top: 14px;
+}
+
+.tutor-mini-lesson p,
+.tutor-section p {
+  margin: 8px 0;
+}
+
+.tutor-section ul,
+.tutor-mini-lesson ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.tutor-tabs {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.tutor-overlay-panel {
+  width: min(1120px, 96vw);
+}

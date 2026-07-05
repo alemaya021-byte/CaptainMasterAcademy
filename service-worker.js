@@ -1,4 +1,4 @@
-const CACHE_NAME = "captain-master-academy-v2-1-exam-simulator-v1";
+const CACHE_NAME = "captain-master-academy-v2-2-ai-captain-tutor-v1";
 const APP_SHELL = [
   "./",
   "index.html",

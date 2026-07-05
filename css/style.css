@@ -751,6 +751,40 @@ th {
   color: var(--warn);
 }
 
+.nav-dot.unanswered {
+  border-style: dashed;
+}
+
+.exam-toolbar {
+  align-items: stretch;
+}
+
+.exam-review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.exam-pause-screen .stat-card,
+.exam-review-screen .stat-card,
+.exam-analytics .stat-card {
+  background: var(--panel);
+}
+
+.exam-analytics ol,
+.print-report ol {
+  margin: 8px 0 0;
+  padding-left: 22px;
+}
+
+.exam-analytics li,
+.print-report li {
+  margin: 4px 0;
+}
+
 .progress-graph {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(42px, 1fr));
@@ -892,6 +926,15 @@ th {
     backdrop-filter: blur(10px);
   }
 
+  .exam-review-grid,
+  .navigator {
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  }
+
+  .exam-review-list {
+    max-height: none;
+  }
+
   .review-overlay {
     padding: 8px;
     align-items: stretch;
@@ -910,10 +953,6 @@ th {
   .flashcard {
     min-height: 300px;
     padding: 18px;
-  }
-
-  .navigator {
-    grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
   }
 
   .stat-card .value {

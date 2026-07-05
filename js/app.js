@@ -49,6 +49,7 @@
     ["flashcards.html", "Flashcards"],
     ["search.html", "Search"],
     ["statistics.html", "Analytics"],
+    ["account.html", "Account"],
   ];
 
   function emptyProgress() {

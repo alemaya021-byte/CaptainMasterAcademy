@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1f5a7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Captain Academy">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Account - Captain Master Academy</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header data-app-header></header>
+      <main class="main">
+        <section class="page-head">
+          <div>
+            <p class="eyebrow">Enterprise cloud sync</p>
+            <h1>Account, sync, backups, and device continuity.</h1>
+          </div>
+        </section>
+
+        <section class="grid two account-grid">
+          <div class="panel stack">
+            <h2>Sign In</h2>
+            <div class="field">
+              <label for="account-email">Email</label>
+              <input id="account-email" type="email" autocomplete="email" data-auth-email>
+            </div>
+            <div class="field">
+              <label for="account-password">Password</label>
+              <input id="account-password" type="password" autocomplete="current-password" data-auth-password>
+            </div>
+            <div class="action-row">
+              <button class="button" type="button" data-sign-in-email>Sign In</button>
+              <button class="ghost-button" type="button" data-create-account>Create Account</button>
+              <button class="ghost-button" type="button" data-sign-in-google>Google</button>
+              <button class="ghost-button" type="button" data-guest-mode>Guest Mode</button>
+            </div>
+            <div class="empty hidden" data-auth-message></div>
+          </div>
+
+          <aside class="panel stack">
+            <h2>Cloud Actions</h2>
+            <div class="action-row">
+              <button class="button" type="button" data-sync-now>Sync Now</button>
+              <button class="ghost-button" type="button" data-backup-now>Backup Now</button>
+              <button class="ghost-button" type="button" data-restore-latest>Restore Latest</button>
+              <button class="ghost-button" type="button" data-export-progress>Export Progress</button>
+              <button class="ghost-button" type="button" data-import-trigger>Import Progress</button>
+              <button class="ghost-button" type="button" data-sign-out>Sign Out</button>
+            </div>
+            <input type="file" accept="application/json" hidden data-import-progress>
+            <div class="field">
+              <label for="restore-date">Restore Specific Date</label>
+              <div class="inline-control">
+                <input id="restore-date" type="date" data-restore-date>
+                <button class="ghost-button" type="button" data-restore-date-button>Restore</button>
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px">
+          <h2>Status</h2>
+          <div class="grid three" data-account-status></div>
+        </section>
+      </main>
+    </div>
+    <script src="js/storage.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script type="module" src="js/syncEngine.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/account.js"></script>
+  </body>
+</html>

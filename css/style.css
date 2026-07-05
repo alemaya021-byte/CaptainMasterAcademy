@@ -981,3 +981,35 @@ th {
     box-shadow: none;
   }
 }
+
+/* Phase 7 account and cloud sync controls */
+.account-grid .panel,
+.inline-control {
+  align-items: stretch;
+}
+
+.inline-control {
+  display: flex;
+  gap: 8px;
+}
+
+.inline-control input {
+  min-width: 0;
+  flex: 1;
+}
+
+.compact-value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+[data-auth-message][data-type="success"] {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--line));
+  color: var(--good);
+}
+
+[data-auth-message][data-type="error"] {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  color: var(--bad);
+}

@@ -10,6 +10,7 @@ Clean public deployment package for the Captain Master Academy interactive web a
 - Flashcards: `flashcards.html`
 - Search and filters: `search.html`
 - Analytics: `statistics.html`
+- Cloud account and sync: `account.html`
 - App styles: `css/`
 - App scripts: `js/`
 - Question database: `data/questions.json`
@@ -65,3 +66,9 @@ The deployment database contains exactly 7,000 questions.
 - Spaced repetition flashcards with Again, Hard, Good, and Easy ratings.
 - Offline-capable PWA with cache refresh through `service-worker.js`.
 - Phase 6 coverage metadata, built-in exam blueprints, and Study Coach recommendations.
+
+## Phase 7 Cloud Setup
+
+Cloud sync is disabled until `js/firebase-config.js` is filled with a Firebase web app config. After configuration, enable Email/Password and Google providers in Firebase Authentication, deploy the rules in `FirestoreRules.md`, and use the Account page to sign in, sync, back up, restore, export, or import progress.
+
+Guest mode remains local-only and preserves browser progress with localStorage.

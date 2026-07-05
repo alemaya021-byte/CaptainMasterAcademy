@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1f5a7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Captain Academy">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Promotion Tracking - Captain Master Academy</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header data-app-header></header>
+      <main class="main">
+        <section class="page-head">
+          <div>
+            <p class="eyebrow">Version 2.5</p>
+            <h1>Automatic Study Tracking and Promotion Dashboard.</h1>
+          </div>
+          <div class="action-row">
+            <button class="ghost-button" type="button" data-sync-now>Sync Now</button>
+            <button class="ghost-button" type="button" data-print-tracking>Print Report</button>
+          </div>
+        </section>
+
+        <section class="panel tracking-config">
+          <div>
+            <h2>Promotional Exam Date</h2>
+            <p class="muted">Set the target date once; the dashboard projects study pace and readiness against it.</p>
+          </div>
+          <div class="field inline-field">
+            <label for="promotion-exam-date">Exam date</label>
+            <input id="promotion-exam-date" type="date" data-promotion-exam-date>
+          </div>
+          <button class="button" type="button" data-save-exam-date>Save Date</button>
+          <span class="status-badge" data-exam-date-status>Ready</span>
+        </section>
+
+        <section class="grid four tracking-metrics" style="margin-top:16px" data-tracking-metrics>
+          <div class="empty">Loading tracking metrics...</div>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack">
+            <h2>Promotion Readiness Dashboard</h2>
+            <div data-readiness-dashboard></div>
+          </div>
+          <aside class="panel stack">
+            <h2>Today's Mission</h2>
+            <div data-daily-mission></div>
+          </aside>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="panel stack">
+            <h2>Completion and Mastery</h2>
+            <div data-completion-dashboard></div>
+          </div>
+          <aside class="panel stack">
+            <h2>Milestones</h2>
+            <div data-milestone-dashboard></div>
+          </aside>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px">
+          <div class="section-head">
+            <div>
+              <h2>Performance Timeline</h2>
+              <p class="muted">Readiness, mastery, confidence, retention, exams, incidents, study hours, questions, and streaks.</p>
+            </div>
+            <div class="segmented" data-timeline-controls>
+              <button type="button" data-tracking-range="today">Today</button>
+              <button type="button" data-tracking-range="7" class="active-mode">7 Days</button>
+              <button type="button" data-tracking-range="30">30 Days</button>
+              <button type="button" data-tracking-range="90">90 Days</button>
+              <button type="button" data-tracking-range="all">All Time</button>
+            </div>
+          </div>
+          <div data-performance-timeline></div>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px">
+          <h2>Weekly Report</h2>
+          <div data-weekly-report></div>
+        </section>
+      </main>
+    </div>
+    <script src="js/storage.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/adaptiveEngine.js"></script>
+    <script src="js/sync.js"></script>
+    <script type="module" src="js/syncEngine.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/studyTracking.js"></script>
+  </body>
+</html>

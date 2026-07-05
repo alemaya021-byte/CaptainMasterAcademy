@@ -96,6 +96,7 @@ function progress() {
     activeExam: null,
     daily: {},
     adaptive: {},
+    tracking: {},
     darkMode: false,
     updatedAt: "",
   });
@@ -233,6 +234,10 @@ function summary(progressValue) {
     missedQuestions: Object.keys(progressValue.missed || {}).length,
     flashcards: Object.keys(progressValue.flashcards || {}).length,
     examAttempts: (progressValue.exams || []).length,
+    tracking: progressValue.tracking || {},
+    totalStudySeconds: Number(progressValue.tracking?.totalStudySeconds || 0),
+    studyStartDate: progressValue.tracking?.studyStartDate || "",
+    promotionalExamDate: progressValue.tracking?.promotionalExamDate || "",
     updatedAt: progressValue.updatedAt || nowIso(),
     updatedAtMs: updatedMs(progressValue) || nowMs(),
   };
@@ -343,7 +348,8 @@ async function changed(collectionName, sinceMs) {
 
 async function pull() {
   const sinceMs = Number(meta().lastSyncMs || 0);
-  const [questions, bookmarks, needsReview, missedQuestions, flashcards, examAttempts, studySessions, reports] = await Promise.all([
+  const [summarySnapshot, questions, bookmarks, needsReview, missedQuestions, flashcards, examAttempts, studySessions, reports] = await Promise.all([
+    firebase.getDoc(subDoc("progress", "summary")).catch(() => null),
     changed("questions", sinceMs),
     changed("bookmarks", sinceMs),
     changed("needsReview", sinceMs),
@@ -353,7 +359,7 @@ async function pull() {
     changed("studySessions", sinceMs),
     changed("reports", sinceMs),
   ]);
-  return { questions, bookmarks, needsReview, missedQuestions, flashcards, examAttempts, studySessions, reports };
+  return { summary: summarySnapshot?.exists?.() ? summarySnapshot.data() : null, questions, bookmarks, needsReview, missedQuestions, flashcards, examAttempts, studySessions, reports };
 }
 
 function newest(localValue, cloudValue) {
@@ -402,6 +408,9 @@ function merge(local, cloud) {
     if (row.daily) next.daily[day] = newest(next.daily[day], row.daily);
     if (row.adaptiveSession && next.adaptive) next.adaptive.sessionsByDay[day] = newest(next.adaptive.sessionsByDay[day], row.adaptiveSession);
   });
+  if (cloud.summary?.tracking) {
+    next.tracking = newest(next.tracking || {}, cloud.summary.tracking || {});
+  }
   if (next.adaptive) {
     next.adaptive.lastSessionSummary = Object.values(next.adaptive.sessionsByDay || {}).sort((a, b) => updatedMs(b) - updatedMs(a))[0] || next.adaptive.lastSessionSummary || null;
   }

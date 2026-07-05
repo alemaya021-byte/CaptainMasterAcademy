@@ -1,49 +1,103 @@
-# Captain Command Performance Center Validation Report
+# Automatic Study Tracking and Promotion Dashboard Validation Report
 
 ## Scope
 
-Validation covers the Version 2.4 Captain Command Performance Center.
+Validation covers Version 2.5 Automatic Study Tracking and Promotion Dashboard.
 
 ## Required Checks
 
-- App loads.
-- Performance Center loads.
-- Navigation includes Performance.
-- Dashboard reads quiz performance.
-- Dashboard reads exam simulator history.
-- Dashboard reads AI Tutor and AI Chief Mentor report history.
-- Dashboard reads incident simulator history.
-- Dashboard reads flashcard history.
-- Dashboard reads study sessions.
-- Dashboard displays Firebase/cloud sync status.
-- Captain Readiness Center metrics render.
-- Command Performance Scorecard renders.
-- Weakness Intelligence renders.
-- Daily AI Coach renders.
-- Performance Timeline renders.
-- Timeline filters work for Week, Month, Quarter, and Entire History.
-- Milestones render.
-- Cloud sync regression passes.
-- Browser validation passes.
-- `data/questions.json` remains unchanged.
+- Existing quiz system unchanged
+- Existing exam simulator unchanged
+- Existing AI Tutor unchanged
+- Existing Incident Simulator unchanged
+- Existing Firebase synchronization unchanged
+- `questions.json` remains completely unchanged
+- Automatic study tracking records activity
+- Promotion Readiness Dashboard renders
+- Daily Mission renders
+- Performance Timeline filters work
+- Milestones render
+- Weekly Report renders
+- Firebase sync regression passes
+- Mobile layout works
 
 ## Validation Results
 
 Status: Passed on July 5, 2026.
 
-Browser validation used the local web server at `http://127.0.0.1:8772/`.
+Local browser validation used:
 
-- Performance Center loaded without fetch, script, or runtime errors.
-- Navigation included the new Performance entry across Dashboard, Quiz, Exam, Incident Simulator, Performance Center, Flashcards, Search, Analytics, and Account pages.
-- Captain Readiness Center rendered 12 executive metrics, including readiness, predicted written exam score, pass probability, streak, weekly study hours, questions answered, incident count, flashcards reviewed, confidence, mastery, retention, and Firebase history.
-- Cloud panel rendered cloud status, sync status, last sync, and cloud history counts from the existing sync engine and local/cloud-merged progress.
-- Command Performance Scorecard rendered eight command domains.
-- Weakness Intelligence rendered seven intelligence groups: books, chapters, policies, SOGs/SOPs, incident types, forgotten material, and stale topics.
-- Daily AI Coach rendered mission, priorities, question target, incident target, flashcard target, estimated study time, and readiness improvement.
-- Performance Timeline rendered and the Week, Month, Quarter, and Entire History filters changed the timeline row counts correctly.
+`http://127.0.0.1:8775/`
+
+## Browser Validation
+
+- Dashboard loaded without failed data fetches.
+- Quiz page loaded without failed data fetches or console errors.
+- Exam simulator loaded without failed data fetches or console errors.
+- Incident Simulator loaded without failed data fetches or console errors.
+- Flashcards loaded without failed data fetches or console errors.
+- Analytics loaded without failed data fetches or console errors.
+- Captain Command Performance Center loaded without failed data fetches or console errors.
+- Promotion Tracking page loaded without failed data fetches or console errors.
+- Promotion Tracking rendered 43 metric cards.
+- Promotional exam date save control worked.
+- Days-until-exam projection updated after saving a date.
+- Saved exam date persisted after refresh.
+- Daily Mission rendered.
+- Completion and Mastery rendered.
 - Milestones rendered.
-- Existing Dashboard, Quiz, Exam, Incident Simulator, Flashcards, Search, Analytics, and Account pages loaded without failure after the Performance Center was added.
-- Mobile and tablet viewport validation passed; page-level horizontal overflow was removed while keeping timeline/chart areas internally scrollable.
-- Firebase/cloud synchronization regression passed: Email/Password sign-in, Google sign-in mock, Firestore connectivity, guest mode, local-to-cloud merge, cloud-to-local merge, conflict resolution, offline queue, reconnect synchronization, bookmarks, missed questions, flashcards, exam history, readiness score, cross-device synchronization, backup/restore, cross-user security, and `questions.json` unchanged.
-- JavaScript syntax validation passed for `js/performanceCenter.js`, `js/app.js`, and `service-worker.js`.
-- `data/questions.json` remained unchanged with 7,000 questions and SHA-256 hash `FD501A957200CC7C263D301B0BA2C84D278AED92DDCCFF36B4EAA919F455D775`.
+- Weekly Report rendered.
+- Performance Timeline rendered.
+- Timeline filter changed to 30 Days successfully.
+
+## Mobile Validation
+
+Mobile viewport check used a phone-sized viewport.
+
+- Promotion Tracking layout collapsed to one-column configuration controls.
+- No page-level horizontal overflow was detected.
+- Timeline remained internally scrollable.
+- Metric cards remained visible.
+- Main dashboard content remained readable.
+
+## Firebase and Sync Validation
+
+The automated cloud synchronization regression suite passed:
+
+- Email/Password sign-in
+- Google sign-in mock
+- Firestore connectivity
+- Guest mode
+- Local-to-cloud merge
+- Cloud-to-local merge
+- Conflict resolution
+- Offline queue
+- Reconnect synchronization
+- Bookmarks
+- Missed questions
+- Flashcards
+- Exam history
+- Readiness score
+- Cross-device synchronization
+- Backup and restore
+- Cross-user security
+- `questions.json` unchanged
+
+## Static Validation
+
+- JavaScript syntax validation passed for:
+  - `js/app.js`
+  - `js/syncEngine.js`
+  - `js/studyTracking.js`
+  - `service-worker.js`
+- `git diff --check` passed.
+- `data/questions.json` has no diff.
+- `data/questions.json` contains exactly 7,000 questions.
+- `data/questions.json` SHA-256:
+
+`FD501A957200CC7C263D301B0BA2C84D278AED92DDCCFF36B4EAA919F455D775`
+
+## Notes
+
+- The browser read-only validation surface did not expose direct service worker internals, so PWA validation used page load behavior, console error checks, and static cache verification.
+- Version 1.0 question database content remains untouched.

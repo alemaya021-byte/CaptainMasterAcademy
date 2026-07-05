@@ -1400,6 +1400,57 @@ th {
   min-width: 980px;
 }
 
+/* Version 2.5 Automatic Study Tracking */
+.tracking-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.tracking-config h2,
+.tracking-config p {
+  margin: 0;
+}
+
+.inline-field {
+  margin: 0;
+}
+
+.tracking-metrics .stat-card .value {
+  font-size: 26px;
+}
+
+.milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.milestone-item {
+  display: grid;
+  gap: 4px;
+}
+
+.milestone-item.achieved {
+  border-color: color-mix(in srgb, var(--good) 55%, var(--line));
+  background: color-mix(in srgb, var(--good) 10%, var(--panel-soft));
+}
+
+.milestone-item.achieved strong {
+  color: var(--good);
+}
+
+.tracking-timeline {
+  max-width: 100%;
+  overflow-x: auto;
+  contain: inline-size;
+}
+
+.tracking-timeline table {
+  min-width: 1120px;
+}
+
 @media (max-width: 860px) {
   .section-head,
   .scorecard-row {
@@ -1416,5 +1467,19 @@ th {
 
   .segmented button {
     flex: 1 1 128px;
+  }
+
+  .tracking-config {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .tracking-config .button,
+  .tracking-config .ghost-button {
+    width: 100%;
+  }
+
+  .milestone-grid {
+    grid-template-columns: 1fr;
   }
 }

@@ -50,11 +50,37 @@
     ["exam.html", "Exam"],
     ["incident.html", "Incidents"],
     ["performance.html", "Performance"],
+    ["tracking.html", "Tracking"],
     ["flashcards.html", "Flashcards"],
     ["search.html", "Search"],
     ["statistics.html", "Analytics"],
     ["account.html", "Account"],
   ];
+
+  function trackingDefaults() {
+    return {
+      studyStartDate: "",
+      promotionalExamDate: "",
+      firstStudyAt: "",
+      lastActivityAt: "",
+      totalStudySeconds: 0,
+      milestones: {},
+      weeklyReports: {},
+      dailyMissions: {},
+      updatedAt: "",
+      updatedAtMs: 0,
+    };
+  }
+
+  function normalizeTracking(value = {}) {
+    return {
+      ...trackingDefaults(),
+      ...value,
+      milestones: value?.milestones || {},
+      weeklyReports: value?.weeklyReports || {},
+      dailyMissions: value?.dailyMissions || {},
+    };
+  }
 
   function emptyProgress() {
     return {
@@ -71,6 +97,7 @@
       activeExam: null,
       daily: {},
       adaptive: window.CMAAdaptiveEngine ? window.CMAAdaptiveEngine.ensure({}) : {},
+      tracking: trackingDefaults(),
       tutor: { events: [] },
       darkMode: false,
       updatedAt: "",
@@ -94,6 +121,7 @@
       activeExam: parsed.activeExam || null,
       daily: parsed.daily || {},
       adaptive: parsed.adaptive || {},
+      tracking: normalizeTracking(parsed.tracking || {}),
       tutor: parsed.tutor || { events: [] },
       darkMode: Boolean(parsed.darkMode),
     };
@@ -374,13 +402,112 @@
     return progress.answers[questionId] || { attempts: 0, correct: 0, incorrect: 0, totalResponseMs: 0, lastCorrect: null, history: [] };
   }
 
-  function updateDaily(correct, responseMs = 0) {
-    const day = new Date().toISOString().slice(0, 10);
-    const row = progress.daily[day] || { attempts: 0, correct: 0, responseMs: 0 };
+  function dayKeyFrom(value = new Date()) {
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+  }
+
+  function dailyRow(day) {
+    return {
+      attempts: 0,
+      correct: 0,
+      responseMs: 0,
+      ...(progress.daily[day] || {}),
+    };
+  }
+
+  function ensureTracking() {
+    progress.tracking = normalizeTracking(progress.tracking || {});
+    return progress.tracking;
+  }
+
+  function addStudySeconds(row, seconds = 0) {
+    const usable = Math.max(0, Math.round(Number(seconds || 0)));
+    if (!usable) return row;
+    row.studySeconds = Math.round((row.studySeconds || 0) + usable);
+    row.studyMinutes = Math.round((row.studySeconds || 0) / 60);
+    return row;
+  }
+
+  function activitySeconds(type = "study", meta = {}) {
+    if (Number.isFinite(Number(meta.studySeconds))) return Math.max(0, Math.round(Number(meta.studySeconds)));
+    if (Number.isFinite(Number(meta.responseMs)) && Number(meta.responseMs) > 0) return Math.max(8, Math.round(Number(meta.responseMs) / 1000));
+    if (/incident/i.test(type)) return 900;
+    if (/tutor|lesson/i.test(type)) return 45;
+    if (/flashcard/i.test(type)) return 20;
+    if (/exam/i.test(type)) return 0;
+    return 15;
+  }
+
+  function touchTracking(at = new Date().toISOString(), seconds = 0) {
+    const tracking = ensureTracking();
+    const day = dayKeyFrom(at);
+    if (!tracking.firstStudyAt) tracking.firstStudyAt = at;
+    if (!tracking.studyStartDate) tracking.studyStartDate = day;
+    tracking.lastActivityAt = at;
+    tracking.totalStudySeconds = Math.max(0, Math.round(Number(tracking.totalStudySeconds || 0) + Math.max(0, Number(seconds || 0))));
+    tracking.updatedAt = at;
+    tracking.updatedAtMs = Date.parse(at) || Date.now();
+    return tracking;
+  }
+
+  function recordStudyActivity(type = "study", meta = {}) {
+    const at = meta.at || new Date().toISOString();
+    const day = dayKeyFrom(at);
+    const seconds = activitySeconds(type, meta);
+    touchTracking(at, seconds);
+    if (meta.daily === false) return progress.tracking;
+    const row = dailyRow(day);
+    row.activities = (row.activities || 0) + 1;
+    row.lastActivityAt = at;
+    row.updatedAt = at;
+    row.updatedAtMs = Date.parse(at) || Date.now();
+    addStudySeconds(row, seconds);
+    if (/exam/i.test(type)) {
+      row.practiceExamsCompleted = (row.practiceExamsCompleted || 0) + 1;
+      row.practiceExamScoreTotal = (row.practiceExamScoreTotal || 0) + Number(meta.score || 0);
+      row.highestPracticeExamScore = Math.max(Number(row.highestPracticeExamScore || 0), Number(meta.score || 0));
+    } else if (/incident/i.test(type)) {
+      row.incidentAttempts = (row.incidentAttempts || 0) + 1;
+      row.incidentScoreTotal = (row.incidentScoreTotal || 0) + Number(meta.score || 0);
+    } else if (/flashcard/i.test(type)) {
+      row.flashcardReviews = (row.flashcardReviews || 0) + 1;
+    } else if (/tutor/i.test(type)) {
+      row.aiTutorSessions = (row.aiTutorSessions || 0) + 1;
+    }
+    progress.daily[day] = row;
+    return progress.tracking;
+  }
+
+  function setPromotionalExamDate(dateString = "") {
+    const tracking = ensureTracking();
+    tracking.promotionalExamDate = dateString;
+    tracking.updatedAt = new Date().toISOString();
+    tracking.updatedAtMs = Date.now();
+    writeProgress(progress);
+    return tracking;
+  }
+
+  function updateDaily(correct, responseMs = 0, mode = "practice", meta = {}) {
+    const at = meta.at || new Date().toISOString();
+    const day = dayKeyFrom(at);
+    const row = dailyRow(day);
+    const seconds = activitySeconds(mode, { responseMs, studySeconds: meta.studySeconds });
     row.attempts += 1;
     row.correct += correct ? 1 : 0;
     row.responseMs += responseMs || 0;
+    row.questionsAnswered = (row.questionsAnswered || 0) + 1;
+    row.incorrect = Math.max(0, row.attempts - row.correct);
+    row.lastActivityAt = at;
+    row.updatedAt = at;
+    row.updatedAtMs = Date.parse(at) || Date.now();
+    if (/exam/i.test(mode)) row.examAnswers = (row.examAnswers || 0) + 1;
+    else if (/flashcard/i.test(mode)) row.flashcardReviews = (row.flashcardReviews || 0) + 1;
+    else if (/adaptive/i.test(mode)) row.adaptiveAnswers = (row.adaptiveAnswers || 0) + 1;
+    else row.quizAnswers = (row.quizAnswers || 0) + 1;
+    addStudySeconds(row, seconds);
     progress.daily[day] = row;
+    touchTracking(at, seconds);
   }
 
   function updateMissed(questionId, correct) {
@@ -432,7 +559,7 @@
     record.history = [...(record.history || []), { correct, answer: originalLabel, at: record.lastAt, mode, responseMs }].slice(-20);
     progress.answers[question.question_id] = record;
     updateMissed(question.question_id, correct);
-    updateDaily(correct, responseMs);
+    updateDaily(correct, responseMs, mode, { at: record.lastAt });
     if (window.CMAAdaptiveEngine) {
       window.CMAAdaptiveEngine.recordAnswer(progress, question, record, { correct, responseMs, mode, at: record.lastAt });
       window.CMAAdaptiveEngine.analyze(progress, [], { snapshot: true });
@@ -444,6 +571,11 @@
   function setExamResult(result) {
     progress.exams = [result, ...(progress.exams || [])].slice(0, 20);
     progress.activeExam = null;
+    recordStudyActivity("practice-exam", {
+      at: result.completedAt || result.at || new Date().toISOString(),
+      score: result.pct || 0,
+      studySeconds: 0,
+    });
     if (window.CMAAdaptiveEngine) {
       window.CMAAdaptiveEngine.completeSession(progress, { type: "exam", result });
     }
@@ -538,7 +670,11 @@
     daily.incidentScoreTotal = (daily.incidentScoreTotal || 0) + (next.overallScore || 0);
     daily.studySeconds = Math.round((daily.studySeconds || 0) + Math.max(300, Number(next.elapsedSeconds || 0)));
     daily.studyMinutes = Math.round((daily.studySeconds || 0) / 60);
+    daily.lastActivityAt = completedAt;
+    daily.updatedAt = completedAt;
+    daily.updatedAtMs = Date.parse(completedAt) || Date.now();
     progress.daily[day] = daily;
+    touchTracking(completedAt, Math.max(300, Number(next.elapsedSeconds || 0)));
     if (progress.adaptive) {
       progress.adaptive.lastSessionSummary = {
         day,
@@ -679,6 +815,7 @@
     progress.activeExam = null;
     progress.daily = {};
     progress.adaptive = emptyProgress().adaptive;
+    progress.tracking = trackingDefaults();
     progress.tutor = { events: [] };
     writeProgress(progress);
   }
@@ -1384,6 +1521,7 @@
 
   function handleIncorrectLearningEvent(question, selectedLabel = "", questions = questionCatalog) {
     const now = new Date().toISOString();
+    recordStudyActivity("ai-tutor-session", { at: now, studySeconds: 45 });
     scheduleTutorFlashcard(question, selectedLabel);
     progress.needsReview[question.question_id] = {
       ...(progress.needsReview[question.question_id] || {}),
@@ -1605,6 +1743,7 @@
         <div class="action-row">
           <a class="button" href="exam.html?simulation=125">Start 125-Question Exam</a>
           <a class="ghost-button" href="performance.html">Performance Center</a>
+          <a class="ghost-button" href="tracking.html">Promotion Tracking</a>
           <a class="ghost-button" href="incident.html">Incident Simulator</a>
           <a class="ghost-button" href="quiz.html?mode=adaptive">Adaptive Study</a>
           <a class="ghost-button" href="search.html">Search Bank</a>
@@ -1766,6 +1905,9 @@
     flashcardStats,
     recentAccuracy,
     adaptiveSelection,
+    recordStudyActivity,
+    setPromotionalExamDate,
+    ensureTracking,
     flashcardDue,
     rateFlashcard,
     streak,

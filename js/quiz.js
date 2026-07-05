@@ -171,6 +171,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   function showFeedback(correct, autoSubmitted = false) {
     const correctChoice = currentChoice(current.correct_answer);
     const selectedChoice = currentChoice(selectedOriginalLabel);
+    const chiefReview = !correct && window.CMAChiefMentor
+      ? window.CMAChiefMentor.recordQuestionReview(current, selectedOriginalLabel, allQuestions, { mode: autoSubmitted ? "quiz-timer" : studyMode ? "adaptive-study" : "quiz", autoSubmitted })
+      : null;
     card.querySelectorAll("[data-choice]").forEach((choiceButton) => {
       choiceButton.disabled = true;
       if (choiceButton.dataset.choice === current.correct_answer) choiceButton.classList.add("correct");
@@ -187,6 +190,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       <p style="margin-top:10px"><strong>Source reference:</strong> ${CMA.escapeHtml(CMA.sourceLabel(current))}</p>
       ${incorrectExplanations()}
       ${!correct ? CMA.miniLessonHtml(current, selectedOriginalLabel, allQuestions) : ""}
+      ${window.CMAChiefMentor ? window.CMAChiefMentor.renderQuestionReview(chiefReview) : ""}
     `;
     const submitButton = card.querySelector("[data-submit-answer]");
     if (submitButton) submitButton.disabled = true;

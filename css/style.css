@@ -1167,3 +1167,47 @@ th {
 .incident-score-grid .stat-card .value {
   font-size: 26px;
 }
+
+/* Version 2.4 AI Chief Mentor */
+.chief-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.chief-panel h3,
+.chief-panel h4 {
+  margin: 0;
+}
+
+.chief-detail {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 12px;
+}
+
+.chief-detail summary {
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.chief-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.chief-grid p,
+.chief-panel p {
+  margin: 0;
+}
+
+.chief-profile {
+  margin-top: 8px;
+}

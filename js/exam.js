@@ -687,6 +687,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       difficultyScores: analytics.difficultyRows,
     };
     CMA.setExamResult(result);
+    const chiefDebrief = window.CMAChiefMentor ? window.CMAChiefMentor.recordExamReview(result, missed, examQuestions) : null;
     Promise.resolve(window.CMASyncEngine?.manualSync?.("exam-complete")).catch(() => {});
     timer.textContent = formatTime(0);
     position.textContent = "0";
@@ -708,6 +709,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <p>${pct >= PASSING_SCORE ? "Current attempt is above the simulator passing threshold." : "Current attempt is below the simulator passing threshold."} ${missed.length ? `${missed.length} questions were missed or unanswered.` : "No missed questions on this exam."}</p>
         </div>
         ${analyticsHtml(analytics)}
+        ${window.CMAChiefMentor ? window.CMAChiefMentor.renderExamDebrief(chiefDebrief) : ""}
         <div class="action-row" style="margin-top:14px">
           <button class="button" type="button" data-print-report>Print Score Report</button>
           <a class="ghost-button" href="quiz.html?review=missed">Review Missed Questions</a>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "captain-master-academy-v2-3-incident-simulator-v1";
+const CACHE_NAME = "captain-master-academy-v2-4-ai-chief-mentor-v1";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -17,6 +17,7 @@ const APP_SHELL = [
   "js/firebase-config.example.js",
   "js/syncEngine.js",
   "js/app.js",
+  "js/chiefMentor.js",
   "js/quiz.js",
   "js/exam.js",
   "js/incident.js",

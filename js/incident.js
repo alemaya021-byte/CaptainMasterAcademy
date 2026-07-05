@@ -489,6 +489,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       lessonsLearned: lessonsLearned({ tacticalScore, safetyScore, communicationsScore, leadershipScore }),
       elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
     });
+    const chiefDebrief = window.CMAChiefMentor ? window.CMAChiefMentor.recordIncidentDebrief(result, related) : null;
     Promise.resolve(window.CMASyncEngine?.manualSync?.("incident-scenario-complete")).catch(() => {});
     card.innerHTML = `
       <section class="stack">
@@ -509,12 +510,12 @@ document.addEventListener("DOMContentLoaded", async () => {
       card.innerHTML = `<div class="empty">Choose a scenario and start the command simulation.</div>`;
       updateStatus();
     });
-    renderDebrief(result, related);
+    renderDebrief(result, related, chiefDebrief);
     renderHistory();
     updateStatus();
   }
 
-  function renderDebrief(result, related) {
+  function renderDebrief(result, related, chiefDebrief = null) {
     results.innerHTML = `
       <section class="print-report stack">
         <h2>Scenario Debrief: ${escape(result.scenarioTitle)}</h2>
@@ -559,6 +560,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           <div class="stat-card"><div class="label">Confidence</div><div class="value">${result.profileAfter.confidence}%</div></div>
           <div class="stat-card"><div class="label">Retention</div><div class="value">${result.profileAfter.retention}%</div></div>
         </div>
+        ${window.CMAChiefMentor ? window.CMAChiefMentor.renderIncidentDebrief(chiefDebrief) : ""}
       </section>
     `;
   }

@@ -72,3 +72,17 @@ The deployment database contains exactly 7,000 questions.
 Cloud sync is disabled until `js/firebase-config.js` is filled with a Firebase web app config. After configuration, enable Email/Password and Google providers in Firebase Authentication, deploy the rules in `FirestoreRules.md`, and use the Account page to sign in, sync, back up, restore, export, or import progress.
 
 Guest mode remains local-only and preserves browser progress with localStorage.
+
+## Cloud Sync Regression
+
+The GitHub Pages workflow runs the cloud synchronization regression suite before every deployment. To run it locally:
+
+```powershell
+node tests/cloud-sync-regression.mjs
+```
+
+To update `CloudSyncRegressionTest.md` with the latest local results:
+
+```powershell
+node tests/cloud-sync-regression.mjs --write-report
+```

@@ -64,6 +64,7 @@
       exams: [],
       activeExam: null,
       daily: {},
+      adaptive: window.CMAAdaptiveEngine ? window.CMAAdaptiveEngine.ensure({}) : {},
       darkMode: false,
       updatedAt: "",
     };
@@ -83,8 +84,10 @@
       exams: parsed.exams || [],
       activeExam: parsed.activeExam || null,
       daily: parsed.daily || {},
+      adaptive: parsed.adaptive || {},
       darkMode: Boolean(parsed.darkMode),
     };
+    if (window.CMAAdaptiveEngine) window.CMAAdaptiveEngine.ensure(progress);
 
     Object.entries(progress.answers).forEach(([questionId, record]) => {
       if (record?.lastCorrect === false && !progress.missed[questionId]) {
@@ -419,6 +422,10 @@
     progress.answers[question.question_id] = record;
     updateMissed(question.question_id, correct);
     updateDaily(correct, responseMs);
+    if (window.CMAAdaptiveEngine) {
+      window.CMAAdaptiveEngine.recordAnswer(progress, question, record, { correct, responseMs, mode, at: record.lastAt });
+      window.CMAAdaptiveEngine.analyze(progress, [], { snapshot: true });
+    }
     writeProgress(progress);
     return correct;
   }
@@ -426,6 +433,9 @@
   function setExamResult(result) {
     progress.exams = [result, ...(progress.exams || [])].slice(0, 20);
     progress.activeExam = null;
+    if (window.CMAAdaptiveEngine) {
+      window.CMAAdaptiveEngine.completeSession(progress, { type: "exam", result });
+    }
     writeProgress(progress);
   }
 
@@ -541,6 +551,7 @@
     progress.exams = [];
     progress.activeExam = null;
     progress.daily = {};
+    progress.adaptive = emptyProgress().adaptive;
     writeProgress(progress);
   }
 
@@ -615,6 +626,38 @@
     return aggregateScores(questions, chapterLabel).sort((a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label));
   }
 
+  function adaptiveAnalyze(questions = [], options = {}) {
+    if (!window.CMAAdaptiveEngine) return null;
+    return window.CMAAdaptiveEngine.analyze(progress, questions, options);
+  }
+
+  function adaptiveGroupRows(questions = [], dimension = "book") {
+    if (!window.CMAAdaptiveEngine) return [];
+    return window.CMAAdaptiveEngine.groupRows(progress, questions, dimension);
+  }
+
+  function policyScores(questions) {
+    const rows = adaptiveGroupRows(questions, "policy");
+    if (rows.length) return rows.sort((a, b) => b.attempts - a.attempts || b.risk - a.risk || a.label.localeCompare(b.label));
+    return aggregateScores(questions, sourceLabel).sort((a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label));
+  }
+
+  function adaptiveSessionSummary() {
+    if (!window.CMAAdaptiveEngine) return null;
+    window.CMAAdaptiveEngine.ensure(progress);
+    return progress.adaptive.lastSessionSummary || progress.adaptive.sessionsByDay?.[new Date().toISOString().slice(0, 10)] || null;
+  }
+
+  function adaptiveTrend(days = 30) {
+    return window.CMAAdaptiveEngine ? window.CMAAdaptiveEngine.trend(progress, days) : progressSeries(days);
+  }
+
+  function refreshAdaptive(questions = [], persist = false) {
+    const adaptive = adaptiveAnalyze(questions, { snapshot: true });
+    if (persist) writeProgress(progress);
+    return adaptive;
+  }
+
   function weakTopics(questions, limit = 8) {
     return aggregateScores(questions, chapterLabel)
       .filter((row) => row.attempts >= 2 && row.accuracy < 75)
@@ -627,12 +670,17 @@
     const weighted = questions.map((question) => {
       const record = progress.answers[question.question_id];
       const chapter = chapterStats.get(chapterLabel(question));
+      const profile = progress.adaptive?.questions?.[question.question_id];
       let weight = 1;
       if (!record) weight += 3;
       if (record?.lastCorrect === false) weight += 8;
       if (record?.attempts >= 2 && record.correct / record.attempts < 0.75) weight += 5;
       if (chapter?.attempts >= 2 && chapter.accuracy < 75) weight += 6;
       if (record?.attempts >= 3 && record.correct / record.attempts >= 0.85) weight -= 0.7;
+      if (profile?.status === "forgotten") weight += 10;
+      if (profile?.retention < 55) weight += 8;
+      if (profile?.confidence < 50 && record) weight += 3;
+      if (profile?.mastery >= 85 && profile?.retention >= 75) weight -= 1.2;
       if (question.estimated_exam_probability === "High") weight += 1;
       return { question, weight: Math.max(0.2, weight) };
     });
@@ -773,7 +821,35 @@
     if (weakRows.length) recommendations.push(`Focus next on ${weakRows[0].label}.`);
     if (missedIds().length) recommendations.push("Use missed-question drill until each item is answered correctly twice in a row.");
     if (!recommendations.length) recommendations.push("Maintain readiness with a timed exam and flashcard review cycle.");
-    return { score, category, recommendations, recent, hard, weakAverage, examAverage, recovery, consistency, responseScore };
+    const legacy = { score, category, recommendations, recent, hard, weakAverage, examAverage, recovery, consistency, responseScore };
+    const adaptive = adaptiveAnalyze(questions, { snapshot: true })?.readiness;
+    if (!adaptive) return legacy;
+    return {
+      ...legacy,
+      score: adaptive.score,
+      category: adaptive.category,
+      recommendations: adaptive.recommendations?.length ? adaptive.recommendations : legacy.recommendations,
+      recent: adaptive.recent || legacy.recent,
+      hard: adaptive.hard || legacy.hard,
+      weakAverage: adaptive.weakAverage || legacy.weakAverage,
+      examAverage: adaptive.examAverage || legacy.examAverage,
+      consistency: adaptive.consistency || legacy.consistency,
+      predictedExamScore: adaptive.predictedExamScore,
+      passProbability: adaptive.passProbability,
+      estimatedRank: adaptive.estimatedRank,
+      studyEfficiency: adaptive.studyEfficiency,
+      confidence: adaptive.confidence,
+      confidenceInterval: adaptive.confidenceInterval,
+      questionsMastered: adaptive.questionsMastered,
+      questionsNeedingReview: adaptive.questionsNeedingReview,
+      questionsNeverSeen: adaptive.questionsNeverSeen,
+      questionsForgotten: adaptive.questionsForgotten,
+      studyMinutes7Day: adaptive.studyMinutes7Day,
+      strongestBooks: adaptive.strongestBooks,
+      weakestBooks: adaptive.weakestBooks,
+      retentionWeightedMastery: adaptive.retentionWeightedMastery,
+      coverage: adaptive.coverage,
+    };
   }
 
   function strongestTopics(questions, limit = 6) {
@@ -797,7 +873,7 @@
     const flashcards = flashcardStats();
     const missed = missedIds().length;
     const confidence = confidenceLabel(summary);
-    const predictedPassProbability = Math.max(1, Math.min(99, Math.round(readiness.score * 0.85 + (readiness.examAverage || readiness.recent || summary.accuracy || 55) * 0.15)));
+    const predictedPassProbability = readiness.passProbability || Math.max(1, Math.min(99, Math.round(readiness.score * 0.85 + (readiness.examAverage || readiness.recent || summary.accuracy || 55) * 0.15)));
     const weakLead = weak[0]?.label || "mixed official blueprint";
     const studyMinutes = readiness.score >= 85 ? 30 : readiness.score >= 72 ? 45 : readiness.score >= 55 ? 60 : 90;
     const recommendedQuiz = missed ? "Missed Questions Only" : weak.length ? "Weak Topics Only" : context.examPct ? "Official Captain Simulation" : "Adaptive Study";
@@ -807,6 +883,10 @@
     return {
       readiness,
       predictedPassProbability,
+      predictedExamScore: readiness.predictedExamScore || readiness.score,
+      estimatedRank: readiness.estimatedRank || "Insufficient data",
+      studyEfficiency: readiness.studyEfficiency || 0,
+      confidenceInterval: readiness.confidenceInterval,
       confidence,
       strongestSubjects: strong.map((row) => row.label),
       weakestSubjects: weak.map((row) => row.label),
@@ -834,6 +914,10 @@
         <div class="grid two">
           <div class="stat-card"><div class="label">Readiness</div><div class="value">${coach.readiness.score}%</div><span class="muted">${escapeHtml(coach.readiness.category)}</span></div>
           <div class="stat-card"><div class="label">Predicted Pass</div><div class="value">${coach.predictedPassProbability}%</div><span class="muted">${escapeHtml(coach.confidence)} confidence</span></div>
+        </div>
+        <div class="grid two">
+          <div class="stat-card"><div class="label">Predicted Exam</div><div class="value">${coach.predictedExamScore}%</div><span class="muted">${escapeHtml(coach.estimatedRank)}</span></div>
+          <div class="stat-card"><div class="label">Efficiency</div><div class="value">${coach.studyEfficiency}</div><span class="muted">points/hour</span></div>
         </div>
         <div class="list-item">
           <strong>Recommended study time</strong>
@@ -1048,8 +1132,12 @@
       <section class="grid four">
         <div class="stat-card"><div class="label">Questions</div><div class="value">${questions.length}</div></div>
         <div class="stat-card"><div class="label">Readiness</div><div class="value">${readiness.score}%</div><span class="muted">${readiness.category}</span></div>
+        <div class="stat-card"><div class="label">Predicted Exam</div><div class="value">${readiness.predictedExamScore || readiness.score}%</div><span class="muted">${escapeHtml(readiness.estimatedRank || "Rank band pending")}</span></div>
+        <div class="stat-card"><div class="label">Pass Probability</div><div class="value">${readiness.passProbability || 0}%</div></div>
         <div class="stat-card"><div class="label">Overall Score</div><div class="value">${summary.accuracy}%</div></div>
         <div class="stat-card"><div class="label">Study Streak</div><div class="value">${streakInfo.current}</div></div>
+        <div class="stat-card"><div class="label">Mastered</div><div class="value">${readiness.questionsMastered || 0}</div></div>
+        <div class="stat-card"><div class="label">Need Review</div><div class="value">${readiness.questionsNeedingReview || 0}</div></div>
       </section>
 
       <section class="grid two" style="margin-top:16px">
@@ -1060,6 +1148,9 @@
             <div class="stat-card"><div class="label">Recent Accuracy</div><div class="value">${readiness.recent || 0}%</div></div>
             <div class="stat-card"><div class="label">Hard Accuracy</div><div class="value">${readiness.hard || 0}%</div></div>
             <div class="stat-card"><div class="label">Avg Response</div><div class="value">${summary.avgResponseSeconds}s</div></div>
+            <div class="stat-card"><div class="label">Retention Mastery</div><div class="value">${readiness.retentionWeightedMastery || 0}%</div></div>
+            <div class="stat-card"><div class="label">Never Seen</div><div class="value">${readiness.questionsNeverSeen || 0}</div></div>
+            <div class="stat-card"><div class="label">Study Time</div><div class="value">${readiness.studyMinutes7Day || 0}m</div></div>
           </div>
         </div>
         <aside class="panel stack">
@@ -1175,10 +1266,16 @@
     sourceScores,
     areaScores,
     chapterScores,
+    policyScores,
     weakTopics,
     strongestTopics,
     missedBySource,
     readinessModel,
+    adaptiveAnalyze,
+    adaptiveGroupRows,
+    adaptiveSessionSummary,
+    adaptiveTrend,
+    refreshAdaptive,
     studyCoach,
     studyCoachHtml,
     flashcardStats,

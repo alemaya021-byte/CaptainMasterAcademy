@@ -202,6 +202,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     submitted = true;
     const responseMs = questionStartedAt ? Date.now() - questionStartedAt : 0;
     const correct = CMA.recordAnswer(current, selectedOriginalLabel, autoSubmitted ? "quiz-timer" : studyMode ? "adaptive-study" : "quiz", { responseMs });
+    CMA.refreshAdaptive(allQuestions, true);
     localAnswered += 1;
     localCorrect += correct ? 1 : 0;
     showFeedback(correct, autoSubmitted);

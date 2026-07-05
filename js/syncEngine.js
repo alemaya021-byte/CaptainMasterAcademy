@@ -95,6 +95,7 @@ function progress() {
     exams: [],
     activeExam: null,
     daily: {},
+    adaptive: {},
     darkMode: false,
     updatedAt: "",
   });
@@ -276,17 +277,29 @@ function envelope(id, data = {}, extra = {}) {
 }
 
 function asCloud(progressValue) {
+  const days = new Set([
+    ...Object.keys(progressValue.reviewed || {}),
+    ...Object.keys(progressValue.daily || {}),
+    ...Object.keys(progressValue.adaptive?.sessionsByDay || {}),
+  ]);
   return {
     summary: summary(progressValue),
-    questions: Object.entries(progressValue.answers || {}).map(([id, row]) => envelope(id, row, { questionId: id })),
+    questions: Object.entries(progressValue.answers || {}).map(([id, row]) => envelope(id, row, { questionId: id, adaptive: progressValue.adaptive?.questions?.[id] || null })),
     bookmarks: Object.keys(progressValue.bookmarks || {}).map((id) => envelope(id, {}, { questionId: id, active: true })),
     needsReview: Object.entries(progressValue.needsReview || {}).map(([id, row]) => envelope(id, row, { questionId: id, active: true })),
     missedQuestions: Object.entries(progressValue.missed || {}).map(([id, row]) => envelope(id, row, { questionId: id, active: true })),
     flashcards: Object.entries(progressValue.flashcards || {}).map(([id, row]) => envelope(id, row, { questionId: id })),
     examAttempts: (progressValue.exams || []).map((row) => envelope(row.id || row.at || `exam-${Date.now()}`, row, { attemptId: row.id || row.at })),
     reports: (progressValue.reports || []).map((row) => envelope(row.id || row.reportId || row.timestamp || `report-${Date.now()}`, row, { reportId: row.id || row.reportId })),
-    studySessions: Object.entries(progressValue.reviewed || {}).map(([day, row]) =>
-      envelope(day, { day, reviewed: Object.keys(row || {}), reviewedCount: Object.keys(row || {}).length, updatedAt: `${day}T23:59:59.000Z` }, { sessionId: day })
+    studySessions: [...days].map((day) =>
+      envelope(day, {
+        day,
+        reviewed: Object.keys(progressValue.reviewed?.[day] || {}),
+        reviewedCount: Object.keys(progressValue.reviewed?.[day] || {}).length,
+        daily: progressValue.daily?.[day] || null,
+        adaptiveSession: progressValue.adaptive?.sessionsByDay?.[day] || null,
+        updatedAt: progressValue.adaptive?.sessionsByDay?.[day]?.updatedAt || `${day}T23:59:59.000Z`,
+      }, { sessionId: day })
     ),
   };
 }
@@ -350,10 +363,12 @@ function newest(localValue, cloudValue) {
 function merge(local, cloud) {
   if (!cloud) return local;
   const next = { ...local };
+  if (window.CMAAdaptiveEngine) window.CMAAdaptiveEngine.ensure(next);
   next.answers = { ...(local.answers || {}) };
   cloud.questions.forEach((row) => {
     const id = row.questionId || row.id;
     next.answers[id] = newest(next.answers[id], row);
+    if (row.adaptive && next.adaptive) next.adaptive.questions[id] = newest(next.adaptive.questions[id], row.adaptive);
   });
   next.bookmarks = { ...(local.bookmarks || {}) };
   cloud.bookmarks.filter((row) => row.active !== false).forEach((row) => { next.bookmarks[row.questionId || row.id] = true; });
@@ -379,11 +394,17 @@ function merge(local, cloud) {
   cloud.reports.forEach((row) => reports.set(row.id || row.reportId || row.timestamp, newest(reports.get(row.id || row.reportId || row.timestamp), row)));
   next.reports = [...reports.values()].sort((a, b) => updatedMs(b) - updatedMs(a)).slice(0, 500);
   next.reviewed = { ...(local.reviewed || {}) };
+  next.daily = { ...(local.daily || {}) };
   cloud.studySessions.forEach((row) => {
     const day = row.day || row.id;
     next.reviewed[day] = { ...(next.reviewed[day] || {}) };
     (row.reviewed || []).forEach((questionId) => { next.reviewed[day][questionId] = true; });
+    if (row.daily) next.daily[day] = newest(next.daily[day], row.daily);
+    if (row.adaptiveSession && next.adaptive) next.adaptive.sessionsByDay[day] = newest(next.adaptive.sessionsByDay[day], row.adaptiveSession);
   });
+  if (next.adaptive) {
+    next.adaptive.lastSessionSummary = Object.values(next.adaptive.sessionsByDay || {}).sort((a, b) => updatedMs(b) - updatedMs(a))[0] || next.adaptive.lastSessionSummary || null;
+  }
   next.updatedAt = nowIso();
   return next;
 }

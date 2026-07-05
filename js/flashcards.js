@@ -137,6 +137,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const q = currentQuestion();
     if (!q) return;
     CMA.rateFlashcard(q, rating);
+    CMA.refreshAdaptive(questions, true);
     if (mode === "due" && rating !== "again") {
       deck = deck.filter((item) => item.question_id !== q.question_id);
       index = Math.min(index, Math.max(0, deck.length - 1));

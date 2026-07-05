@@ -1013,3 +1013,55 @@ th {
   border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
   color: var(--bad);
 }
+
+/* Version 2.0 adaptive intelligence dashboards */
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.heat-cell {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel-soft);
+  min-height: 112px;
+}
+
+.heat-cell strong,
+.heat-cell span,
+.heat-cell small {
+  display: block;
+}
+
+.heat-cell strong {
+  overflow-wrap: anywhere;
+}
+
+.heat-cell span {
+  margin-top: 8px;
+  font-weight: 800;
+}
+
+.heat-cell small {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.heat-cell.strong {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--line));
+}
+
+.heat-cell.moderate {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+}
+
+.heat-cell.weak {
+  border-color: color-mix(in srgb, var(--bad) 50%, var(--line));
+}
+
+.adaptive-session ul {
+  margin: 6px 0 14px;
+  padding-left: 20px;
+}

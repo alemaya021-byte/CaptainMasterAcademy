@@ -281,6 +281,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const pct = Math.round((correct / exam.questionIds.length) * 100);
     const flagged = Object.keys(exam.flagged || {});
     CMA.setExamResult({ at: new Date().toISOString(), total: exam.questionIds.length, correct, pct, flagged, missed: missed.map((row) => row.question.question_id), autoSubmitted });
+    CMA.refreshAdaptive(allQuestions, true);
     timer.textContent = "00:00";
     position.textContent = "0";
     answeredCount.textContent = Object.keys(exam.answers).length;

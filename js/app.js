@@ -48,6 +48,7 @@
     ["index.html", "Dashboard"],
     ["quiz.html", "Study"],
     ["exam.html", "Exam"],
+    ["incident.html", "Incidents"],
     ["flashcards.html", "Flashcards"],
     ["search.html", "Search"],
     ["statistics.html", "Analytics"],
@@ -64,6 +65,8 @@
       reviewed: {},
       flashcards: {},
       exams: [],
+      incidents: [],
+      incidentProfile: { attempts: 0, readiness: 0, mastery: 0, confidence: 0, retention: 0, updatedAt: "" },
       activeExam: null,
       daily: {},
       adaptive: window.CMAAdaptiveEngine ? window.CMAAdaptiveEngine.ensure({}) : {},
@@ -85,6 +88,8 @@
       reviewed: parsed.reviewed || {},
       flashcards: parsed.flashcards || {},
       exams: parsed.exams || [],
+      incidents: parsed.incidents || [],
+      incidentProfile: parsed.incidentProfile || { attempts: 0, readiness: 0, mastery: 0, confidence: 0, retention: 0, updatedAt: "" },
       activeExam: parsed.activeExam || null,
       daily: parsed.daily || {},
       adaptive: parsed.adaptive || {},
@@ -444,6 +449,120 @@
     writeProgress(progress);
   }
 
+  function incidentAttempts() {
+    const local = progress.incidents || [];
+    const synced = (progress.reports || [])
+      .filter((row) => row.type === "incident-scenario" && row.result)
+      .map((row) => row.result);
+    const rows = new Map();
+    [...local, ...synced].forEach((row) => {
+      const id = row.id || row.reportId || row.completedAt || row.at;
+      if (id) rows.set(id, row);
+    });
+    return [...rows.values()].sort((a, b) => Date.parse(b.completedAt || b.at || 0) - Date.parse(a.completedAt || a.at || 0));
+  }
+
+  function incidentWeakDomains(result) {
+    const labels = [
+      ["tacticalScore", "Tactical priorities"],
+      ["safetyScore", "Safety"],
+      ["communicationsScore", "Radio reports and command communications"],
+      ["leadershipScore", "Leadership and command presence"],
+    ];
+    return labels
+      .map(([key, label]) => ({ key, label, score: Number(result[key] || 0) }))
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 3);
+  }
+
+  function updateIncidentProfile(result) {
+    const current = progress.incidentProfile || { attempts: 0, readiness: 0, mastery: 0, confidence: 0, retention: 0 };
+    const attempts = (current.attempts || 0) + 1;
+    const weighted = (oldValue, newValue) => Math.round(((oldValue || 0) * Math.max(0, attempts - 1) + Number(newValue || 0)) / attempts);
+    const avgScore = Math.round(((result.overallScore || 0) + (result.tacticalScore || 0) + (result.safetyScore || 0) + (result.communicationsScore || 0) + (result.leadershipScore || 0)) / 5);
+    const safetyFloor = Number(result.safetyScore || 0);
+    const commFloor = Number(result.communicationsScore || 0);
+    progress.incidentProfile = {
+      attempts,
+      readiness: weighted(current.readiness, Math.round(avgScore * 0.65 + safetyFloor * 0.2 + commFloor * 0.15)),
+      mastery: weighted(current.mastery, avgScore),
+      confidence: weighted(current.confidence, Math.round(avgScore * 0.7 + (result.leadershipScore || 0) * 0.3)),
+      retention: weighted(current.retention, Math.max(40, Math.round(avgScore * 0.8 + 12))),
+      lastScenario: result.scenarioTitle,
+      updatedAt: new Date().toISOString(),
+    };
+    return progress.incidentProfile;
+  }
+
+  function incidentStudyPlan(result) {
+    const weak = incidentWeakDomains(result);
+    const plan = weak.map((row) => `Review ${row.label} from the scenario debrief and drill related questions.`);
+    if ((result.safetyScore || 0) < 80) plan.push("Run an Incident Safety Officer or RIT-focused review before the next simulator attempt.");
+    if ((result.communicationsScore || 0) < 80) plan.push("Practice a concise initial radio report, command mode announcement, resource request, and progress report.");
+    if (!plan.length) plan.push("Run a higher-complexity incident and maintain the current command decision pattern.");
+    return plan.slice(0, 5);
+  }
+
+  function setIncidentResult(result) {
+    const completedAt = result.completedAt || new Date().toISOString();
+    const id = result.id || `incident-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const next = {
+      ...result,
+      id,
+      completedAt,
+      at: completedAt,
+      studyPlan: result.studyPlan?.length ? result.studyPlan : incidentStudyPlan(result),
+      updatedAt: completedAt,
+    };
+    const profile = updateIncidentProfile(next);
+    next.profileAfter = profile;
+    progress.incidents = [next, ...(progress.incidents || [])].slice(0, 50);
+    progress.reports = [
+      {
+        id: `incident-report-${id}`,
+        reportId: `incident-report-${id}`,
+        type: "incident-scenario",
+        reason: "Incident command simulator completion",
+        note: `${next.scenarioTitle}: ${next.overallScore}% command score`,
+        source: (next.departmentReferences || []).join("; "),
+        result: next,
+        timestamp: completedAt,
+        updatedAt: completedAt,
+      },
+      ...(progress.reports || []),
+    ].slice(0, 500);
+    const day = completedAt.slice(0, 10);
+    const daily = progress.daily[day] || { attempts: 0, correct: 0, responseMs: 0 };
+    daily.incidentAttempts = (daily.incidentAttempts || 0) + 1;
+    daily.incidentScoreTotal = (daily.incidentScoreTotal || 0) + (next.overallScore || 0);
+    daily.studySeconds = Math.round((daily.studySeconds || 0) + Math.max(300, Number(next.elapsedSeconds || 0)));
+    daily.studyMinutes = Math.round((daily.studySeconds || 0) / 60);
+    progress.daily[day] = daily;
+    if (progress.adaptive) {
+      progress.adaptive.lastSessionSummary = {
+        day,
+        answered: 0,
+        correct: 0,
+        missed: incidentWeakDomains(next).length,
+        whatImprovedToday: [`${next.scenarioTitle} completed at ${next.overallScore}% command score`],
+        whatGotWorse: incidentWeakDomains(next).filter((row) => row.score < 75).map((row) => `${row.label} scored ${row.score}%`),
+        topicsRequiringImmediateReview: incidentWeakDomains(next).map((row) => row.label),
+        recommendedStudyPlan: next.studyPlan,
+        estimatedMinutesRequired: Math.max(30, incidentWeakDomains(next).length * 15 + 20),
+        estimatedScoreImprovement: "+1.0 to +3.0 readiness points",
+        type: "incident-scenario",
+        updatedAt: completedAt,
+      };
+      progress.adaptive.sessionsByDay = progress.adaptive.sessionsByDay || {};
+      progress.adaptive.sessionsByDay[day] = {
+        ...(progress.adaptive.sessionsByDay[day] || {}),
+        ...progress.adaptive.lastSessionSummary,
+      };
+    }
+    writeProgress(progress);
+    return next;
+  }
+
   function saveActiveExam(exam) {
     progress.activeExam = exam;
     writeProgress(progress);
@@ -554,6 +673,8 @@
     progress.reviewed = {};
     progress.flashcards = {};
     progress.exams = [];
+    progress.incidents = [];
+    progress.incidentProfile = { attempts: 0, readiness: 0, mastery: 0, confidence: 0, retention: 0, updatedAt: "" };
     progress.activeExam = null;
     progress.daily = {};
     progress.adaptive = emptyProgress().adaptive;
@@ -1482,6 +1603,7 @@
         </div>
         <div class="action-row">
           <a class="button" href="exam.html?simulation=125">Start 125-Question Exam</a>
+          <a class="ghost-button" href="incident.html">Incident Simulator</a>
           <a class="ghost-button" href="quiz.html?mode=adaptive">Adaptive Study</a>
           <a class="ghost-button" href="search.html">Search Bank</a>
           <a class="ghost-button" href="flashcards.html">Flashcards</a>
@@ -1613,6 +1735,8 @@
     displayChoices,
     recordAnswer,
     setExamResult,
+    setIncidentResult,
+    incidentAttempts,
     saveActiveExam,
     clearActiveExam,
     isMissed,

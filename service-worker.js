@@ -1,9 +1,10 @@
-const CACHE_NAME = "captain-master-academy-v2-2-ai-captain-tutor-v1";
+const CACHE_NAME = "captain-master-academy-v2-3-incident-simulator-v1";
 const APP_SHELL = [
   "./",
   "index.html",
   "quiz.html",
   "exam.html",
+  "incident.html",
   "flashcards.html",
   "search.html",
   "statistics.html",
@@ -18,6 +19,7 @@ const APP_SHELL = [
   "js/app.js",
   "js/quiz.js",
   "js/exam.js",
+  "js/incident.js",
   "js/flashcards.js",
   "js/search.js",
   "js/statistics.js",

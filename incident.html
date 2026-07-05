@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#1f5a7a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Captain Academy">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <title>Incident Simulator - Captain Master Academy</title>
+    <link rel="stylesheet" href="css/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header data-app-header></header>
+      <main class="main">
+        <section class="page-head">
+          <div>
+            <p class="eyebrow">Captain incident command simulator</p>
+            <h1>Practice command decisions under branching incident conditions.</h1>
+          </div>
+          <div class="action-row">
+            <button class="ghost-button" type="button" data-random-scenario>Random Scenario</button>
+            <button class="ghost-button" type="button" data-print-incident>Print Debrief</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="filter-row">
+            <div class="field">
+              <label for="incident-type">Scenario</label>
+              <select id="incident-type" data-scenario-select></select>
+            </div>
+            <div class="field">
+              <label for="incident-complexity">Complexity</label>
+              <select id="incident-complexity" data-complexity-select>
+                <option value="">All complexity</option>
+                <option value="Moderate">Moderate</option>
+                <option value="Hard">Hard</option>
+              </select>
+            </div>
+            <button class="button" type="button" data-start-scenario>Start Scenario</button>
+          </div>
+        </section>
+
+        <section class="grid two" style="margin-top:16px">
+          <div class="question-card" data-incident-card>
+            <div class="empty">Choose a scenario and start the command simulation.</div>
+          </div>
+          <aside class="panel stack">
+            <h2>Command Status</h2>
+            <div class="grid two">
+              <div class="stat-card"><div class="label">Step</div><div class="value" data-scenario-step>0</div></div>
+              <div class="stat-card"><div class="label">Score</div><div class="value" data-scenario-score>0%</div></div>
+            </div>
+            <div class="source-score">
+              <strong>Scenario Progress</strong>
+              <span class="muted" data-scenario-progress-label>Not started</span>
+              <div class="bar"><span data-scenario-progress></span></div>
+            </div>
+            <h2>Decision Coverage</h2>
+            <div class="incident-checklist" data-incident-checklist></div>
+            <h2>Incident History</h2>
+            <div data-incident-history></div>
+          </aside>
+        </section>
+
+        <section class="panel stack" style="margin-top:16px" data-incident-results>
+          <h2>Scenario Debrief</h2>
+          <div class="empty">Complete a scenario to generate command, tactical, safety, communications, and leadership scores.</div>
+        </section>
+      </main>
+    </div>
+    <script src="js/storage.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/adaptiveEngine.js"></script>
+    <script src="js/sync.js"></script>
+    <script type="module" src="js/syncEngine.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/incident.js"></script>
+  </body>
+</html>

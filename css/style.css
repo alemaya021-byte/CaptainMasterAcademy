@@ -256,6 +256,10 @@ p {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.grid.five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .panel,
 .stat-card,
 .question-card {
@@ -839,7 +843,8 @@ th {
 
   .grid.two,
   .grid.three,
-  .grid.four {
+  .grid.four,
+  .grid.five {
     grid-template-columns: 1fr;
   }
 
@@ -1140,4 +1145,25 @@ th {
 
 .tutor-overlay-panel {
   width: min(1120px, 96vw);
+}
+
+/* Version 2.3 incident command simulator */
+.incident-checklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.incident-checklist .pill.active-mode {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 12%, var(--panel-soft));
+  color: var(--brand-strong);
+}
+
+.incident-options .choice {
+  min-height: 86px;
+}
+
+.incident-score-grid .stat-card .value {
+  font-size: 26px;
 }

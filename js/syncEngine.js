@@ -29,6 +29,17 @@ const state = {
   error: "",
 };
 
+function optionalConfigScript() {
+  if (window.CMA_FIREBASE_CONFIG || window.CMA_FIREBASE_ENABLED) return Promise.resolve();
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "js/firebase-config.js";
+    script.onload = () => resolve();
+    script.onerror = () => resolve();
+    document.head.appendChild(script);
+  });
+}
+
 function storeGet(key) {
   return window.CMAStorage ? window.CMAStorage.getItem(key) : window.localStorage.getItem(key);
 }
@@ -158,6 +169,8 @@ function userPayload(user) {
 
 async function init() {
   if (app && auth && db) return true;
+  await optionalConfigScript();
+  state.configured = Boolean(window.CMA_FIREBASE_ENABLED);
   if (!window.CMA_FIREBASE_ENABLED) {
     setStatus("Guest mode", { configured: false, mode: "guest", cloudStatus: "Firebase config needed" });
     return false;

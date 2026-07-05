@@ -1,4 +1,4 @@
-const CACHE_NAME = "captain-master-academy-phase7-v1";
+const CACHE_NAME = "captain-master-academy-phase7-v2";
 const APP_SHELL = [
   "./",
   "index.html",
@@ -11,7 +11,7 @@ const APP_SHELL = [
   "css/style.css",
   "js/storage.js",
   "js/sync.js",
-  "js/firebase-config.js",
+  "js/firebase-config.example.js",
   "js/syncEngine.js",
   "js/app.js",
   "js/quiz.js",
